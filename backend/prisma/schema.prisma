@@ -1,0 +1,228 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  SHIPPING
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  COD
+  VNPAY
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  fullName     String   @map("full_name")
+  phone        String?
+  role         Role     @default(USER)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  refreshTokens RefreshToken[]
+  cart          Cart?
+  orders        Order[]
+  conversation  Conversation?
+  messages      Message[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model Category {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+
+  products Product[]
+
+  @@map("categories")
+}
+
+model Brand {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+
+  products Product[]
+
+  @@map("brands")
+}
+
+model Product {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  price       Int // VND, số nguyên
+  stock       Int      @default(0)
+  specs       Json     @default("{}")
+  isActive    Boolean  @default(true) @map("is_active") // ẩn sản phẩm thay vì xóa
+  categoryId  Int      @map("category_id")
+  brandId     Int      @map("brand_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  category   Category       @relation(fields: [categoryId], references: [id])
+  brand      Brand          @relation(fields: [brandId], references: [id])
+  images     ProductImage[]
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@index([categoryId])
+  @@index([brandId])
+  @@map("products")
+}
+
+model ProductImage {
+  id        Int    @id @default(autoincrement())
+  productId Int    @map("product_id")
+  url       String
+  sortOrder Int    @default(0) @map("sort_order")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_images")
+}
+
+model Cart {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique @map("user_id")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+
+  @@map("carts")
+}
+
+model CartItem {
+  id        Int @id @default(autoincrement())
+  cartId    Int @map("cart_id")
+  productId Int @map("product_id")
+  quantity  Int
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([cartId, productId])
+  @@map("cart_items")
+}
+
+model Order {
+  id              Int           @id @default(autoincrement())
+  userId          Int           @map("user_id")
+  status          OrderStatus   @default(PENDING)
+  totalAmount     Int           @map("total_amount")
+  paymentMethod   PaymentMethod @map("payment_method")
+  shippingName    String        @map("shipping_name")
+  shippingPhone   String        @map("shipping_phone")
+  shippingAddress String        @map("shipping_address")
+  note            String?
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  user     User        @relation(fields: [userId], references: [id])
+  items    OrderItem[]
+  payments Payment[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id          Int    @id @default(autoincrement())
+  orderId     Int    @map("order_id")
+  productId   Int    @map("product_id")
+  productName String @map("product_name") // lưu lại tên tại thời điểm mua
+  unitPrice   Int    @map("unit_price") // lưu lại giá tại thời điểm mua
+  quantity    Int
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+// Chỉ tạo bản ghi cho thanh toán VNPay. Đơn COD không có bản ghi ở đây.
+model Payment {
+  id            Int           @id @default(autoincrement())
+  orderId       Int           @map("order_id")
+  txnRef        String        @unique @map("txn_ref")
+  amount        Int
+  status        PaymentStatus @default(PENDING)
+  providerTxnNo String?       @map("provider_txn_no")
+  rawPayload    Json?         @map("raw_payload")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@map("payments")
+}
+
+model Conversation {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id             Int      @id @default(autoincrement())
+  conversationId Int      @map("conversation_id")
+  senderId       Int      @map("sender_id")
+  content        String
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id])
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}

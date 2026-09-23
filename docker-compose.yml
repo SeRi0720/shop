@@ -1,0 +1,16 @@
+# Chỉ dùng cho môi trường dev. Không dùng mật khẩu này ở nơi khác.
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: shop
+      POSTGRES_PASSWORD: shop_dev_pw
+      POSTGRES_DB: shop
+    ports:
+      - "127.0.0.1:5432:5432" # chỉ máy của bạn kết nối được
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
