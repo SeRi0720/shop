@@ -17,16 +17,13 @@ uploads/
 # khác
 *.log
 Thumbs.db
-PROJECT_CONTEXT.md
-ui-spec.md
-/img/ref
 *.dbml
 /generated/prisma
 .agents
 .claude
 .windsurf
 /generated
-/img/ref
-/img/DB.png
+/img
+/docs
 skills-lock.json
 *.tsbuildinfo
