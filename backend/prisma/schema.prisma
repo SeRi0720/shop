@@ -27,7 +27,8 @@ enum PaymentMethod {
 }
 
 enum PaymentStatus {
-  PENDING
+  PENDING              
+  PENDING_ON_DELIVERY  
   SUCCESS
   FAILED
 }
@@ -183,11 +184,10 @@ model OrderItem {
   @@map("order_items")
 }
 
-// Chỉ tạo bản ghi cho thanh toán VNPay. Đơn COD không có bản ghi ở đây.
 model Payment {
   id            Int           @id @default(autoincrement())
   orderId       Int           @map("order_id")
-  txnRef        String        @unique @map("txn_ref")
+  txnRef        String?       @unique @map("txn_ref")
   amount        Int
   status        PaymentStatus @default(PENDING)
   providerTxnNo String?       @map("provider_txn_no")

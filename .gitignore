@@ -1,29 +1,29 @@
-.vscode/
+.vscode/ 
 
-# bí mật
-.env
-.env.*
-!.env.example
+# bí mật 
+.env 
+.env.* 
+!.env.example 
 
-# thư viện và file sinh ra
-node_modules/
-dist/
-coverage/
-generated/
+# thư viện và file sinh ra 
+node_modules/ 
+dist/ 
+coverage/ 
+generated/ 
 
-# ảnh sản phẩm tải lên khi dev
-uploads/
+# ảnh sản phẩm tải lên khi dev 
+uploads/ 
 
-# khác
-*.log
-Thumbs.db
-*.dbml
-/generated/prisma
-.agents
-.claude
-.windsurf
-/generated
-/img
-/docs
-skills-lock.json
+# khác 
+*.log 
+Thumbs.db 
+*.dbml 
+/generated/prisma 
+.agents 
+.claude 
+.windsurf 
+/generated 
+/img 
+/docs 
+skills-lock.json 
 *.tsbuildinfo
