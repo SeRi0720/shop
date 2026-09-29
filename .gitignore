@@ -3,7 +3,7 @@
 # bí mật 
 .env 
 .env.* 
-!.env.example 
+.env.example 
 
 # thư viện và file sinh ra 
 node_modules/ 
