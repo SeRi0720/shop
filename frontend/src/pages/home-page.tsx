@@ -1,13 +1,17 @@
 import { useState } from "react"
-import { useNavigate } from "react-router"
-import { Loader2 } from "lucide-react"
+import { Link } from "react-router"
 import { Button } from "@/components/ui/button"
+import { LogoutButton } from "@/components/auth/logout-button"
+import { SessionLoading } from "@/components/auth/session-loading"
 import { useAuth } from "@/features/auth/auth-context"
 import { api } from "@/lib/api"
 
+/**
+ * TRANG TẠM: giữ phần "Công cụ thử" để kiểm thử ngày 7 (token hết hạn, nhiều request 401).
+ * Sau khi test xong, thay bằng trang chủ thật ở Tuần 3-4.
+ */
 export function HomePage() {
-  const { status, user, logout } = useAuth()
-  const navigate = useNavigate()
+  const { status, user } = useAuth()
   const [log, setLog] = useState("")
   const [busy, setBusy] = useState(false)
 
@@ -20,13 +24,7 @@ export function HomePage() {
     setBusy(false)
   }
 
-  if (status === "initializing") {
-    return (
-      <div className="grid min-h-svh place-items-center">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
+  if (status === "initializing") return <SessionLoading />
 
   return (
     <div className="mx-auto max-w-xl space-y-6 p-8">
@@ -44,8 +42,20 @@ export function HomePage() {
       {status === "authenticated" ? (
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link to="/account">Tài khoản</Link>
+            </Button>
+            {user?.role === "ADMIN" && (
+              <Button asChild variant="outline" size="sm">
+                <Link to="/admin">Trang quản trị</Link>
+              </Button>
+            )}
+            <LogoutButton variant="destructive" />
+          </div>
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
+              size="sm"
               disabled={busy}
               onClick={() => run("1 request", 1)}
             >
@@ -53,19 +63,11 @@ export function HomePage() {
             </Button>
             <Button
               variant="outline"
+              size="sm"
               disabled={busy}
               onClick={() => run("3 request song song", 3)}
             >
               Gọi 3 request song song
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={async () => {
-                await logout()
-                navigate("/login", { replace: true })
-              }}
-            >
-              Đăng xuất
             </Button>
           </div>
           {log && (
@@ -73,7 +75,14 @@ export function HomePage() {
           )}
         </div>
       ) : (
-        <Button onClick={() => navigate("/login")}>Đến trang đăng nhập</Button>
+        <div className="flex gap-2">
+          <Button asChild size="sm">
+            <Link to="/login">Đăng nhập</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/register">Đăng ký</Link>
+          </Button>
+        </div>
       )}
     </div>
   )

@@ -30,6 +30,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [bootstrapped, setBootstrapped] = useState(false) // đã thử refresh lúc khởi động xong chưa
   const [hasSession, setHasSession] = useState(false) // có access token hợp lệ trong bộ nhớ
 
+  // Khởi động app: thử khôi phục phiên bằng cookie refreshToken (giúp F5 vẫn đăng nhập).
+  // refreshSession() là singleton nên StrictMode chạy effect hai lần vẫn chỉ gọi một request.
   useEffect(() => {
     let active = true
     refreshSession().then((token) => {
@@ -48,8 +50,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setHasSession(false)
       queryClient.removeQueries({ queryKey: ME_KEY })
       const path = window.location.pathname
-      if (path !== "/login" && path !== "/register")
-        navigate("/login", { replace: true })
+      // Nhớ trang đang ở để sau khi đăng nhập lại thì quay về đúng trang đó.
+      if (path !== "/login" && path !== "/register") {
+        navigate("/login", {
+          replace: true,
+          state: { from: path + window.location.search },
+        })
+      }
     })
     return () => setSessionExpiredHandler(null)
   }, [navigate, queryClient])
