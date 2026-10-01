@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import type { AuthUser } from './current-user.decorator';
+import type { AuthUser } from '../common/auth/current-user.decorator';
 interface JwtPayload {
   sub: number;
   role: 'USER' | 'ADMIN';

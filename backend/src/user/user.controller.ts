@@ -5,8 +5,11 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { CurrentUser, type AuthUser } from '../auth/current-user.decorator';
+import { JwtAuthGuard } from '../common/auth/jwt-auth.guard';
+import {
+  CurrentUser,
+  type AuthUser,
+} from '../common/auth/current-user.decorator';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UserService } from './user.service';
 @ApiTags('users')
