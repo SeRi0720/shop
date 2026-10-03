@@ -6,6 +6,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -14,6 +15,7 @@ import { Roles } from '../common/auth/roles.decorator';
 import { RolesGuard } from '../common/auth/roles.guard';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { ProductQueryDto } from './dto/product-query.dto';
 import { ProductService } from './product.service';
 
 @ApiTags('admin-products')
@@ -24,12 +26,12 @@ import { ProductService } from './product.service';
 export class AdminProductController {
   constructor(private readonly productService: ProductService) {}
 
-  @Get() findAll() {
-    return this.productService.findAllAdmin();
+  @Get() findAll(@Query() query: ProductQueryDto) {
+    return this.productService.search(query, true);
   }
 
   @Get(':id') findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.productService.findOneAdmin(id);
+    return this.productService.findOne(id, true);
   }
 
   @Post() create(@Body() dto: CreateProductDto) {

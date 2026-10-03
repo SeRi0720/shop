@@ -9,6 +9,7 @@ import { CategoryController } from './category.controller';
 import { CategoryService } from './category.service';
 import { AdminProductController } from './admin-product.controller';
 import { ProductService } from './product.service';
+import { ProductController } from './product.controller';
 
 @Module({
   imports: [PrismaModule, PassportModule.register({})],
@@ -18,6 +19,7 @@ import { ProductService } from './product.service';
     BrandController,
     AdminBrandController,
     AdminProductController,
+    ProductController,
   ],
   providers: [CategoryService, BrandService, ProductService],
   exports: [ProductService],
