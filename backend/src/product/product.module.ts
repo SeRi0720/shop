@@ -9,6 +9,7 @@ import { CategoryController } from './category.controller';
 import { CategoryService } from './category.service';
 import { AdminProductController } from './admin-product.controller';
 import { ProductService } from './product.service';
+import { ProductImageService } from './product-image.service';
 import { ProductController } from './product.controller';
 
 @Module({
@@ -21,7 +22,12 @@ import { ProductController } from './product.controller';
     AdminProductController,
     ProductController,
   ],
-  providers: [CategoryService, BrandService, ProductService],
+  providers: [
+    CategoryService,
+    BrandService,
+    ProductService,
+    ProductImageService,
+  ],
   exports: [ProductService],
 })
 export class ProductModule {}
