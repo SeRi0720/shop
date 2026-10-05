@@ -3,19 +3,27 @@ import {
   LayoutDashboard,
   Package,
   ReceiptText,
+  Tags,
   Users,
   Zap,
   type LucideIcon,
 } from "lucide-react"
+
 import { APP_NAME } from "@/components/auth/auth-shell"
 import { LogoutButton } from "@/components/auth/logout-button"
 import { useAuth } from "@/features/auth/auth-context"
 import { cn } from "@/lib/utils"
 
-// Mục chưa có trang thật hiện mờ kèm tuần sẽ làm (theo mục 7 của PROJECT_CONTEXT).
-const NAV: { to?: string; label: string; icon: LucideIcon; soon?: string }[] = [
-  { to: "/admin", label: "Tổng quan", icon: LayoutDashboard },
-  { label: "Sản phẩm", icon: Package, soon: "Tuần 3" },
+const NAV: {
+  to?: string
+  label: string
+  icon: LucideIcon
+  soon?: string
+  end?: boolean
+}[] = [
+  { to: "/admin", label: "Tổng quan", icon: LayoutDashboard, end: true },
+  { to: "/admin/products", label: "Sản phẩm", icon: Package },
+  { to: "/admin/catalog", label: "Danh mục & thương hiệu", icon: Tags },
   { label: "Đơn hàng", icon: ReceiptText, soon: "Tuần 5" },
   { label: "Người dùng", icon: Users, soon: "Tuần 7" },
 ]
@@ -61,12 +69,12 @@ export function AdminLayout() {
           <Brand />
         </div>
         <nav aria-label="Quản trị" className="flex-1 space-y-1 p-3">
-          {NAV.map(({ to, label, icon: Icon, soon }) =>
+          {NAV.map(({ to, label, icon: Icon, soon, end }) =>
             to ? (
               <NavLink
                 key={label}
                 to={to}
-                end
+                end={end}
                 className={({ isActive }) =>
                   cn(
                     itemBase,
