@@ -79,3 +79,7 @@ export function getErrorMessage(error: unknown, fallback: string): string {
   }
   return fallback
 }
+
+export function isNotFound(error: unknown): boolean {
+  return axios.isAxiosError(error) && error.response?.status === 404
+}

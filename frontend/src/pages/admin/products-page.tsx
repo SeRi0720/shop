@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react"
 import { Link, useSearchParams } from "react-router"
 import { Eye, EyeOff, Pencil, Plus, Search } from "lucide-react"
 import { toast } from "sonner"
@@ -23,8 +22,8 @@ import {
 } from "@/features/catalog/hooks"
 import { getErrorMessage } from "@/lib/api"
 import { formatPrice } from "@/lib/format"
-import { useDebouncedValue } from "@/lib/use-debounced-value"
 import { cn } from "@/lib/utils"
+import { useUrlTextParam } from "@/lib/use-url-text-param"
 
 const PAGE_SIZE = 10
 const MAX_PAGE = 100000 // khớp @Max của ProductQueryDto
@@ -40,22 +39,7 @@ export function AdminProductsPage() {
     Math.max(1, Number.parseInt(searchParams.get("page") ?? "", 10) || 1)
   )
 
-  // Ô tìm kiếm giữ state riêng, sau 300 ms mới ghi lên URL (đổi bộ lọc thì về trang 1).
-  const [input, setInput] = useState(q)
-  const debounced = useDebouncedValue(input.trim(), 300)
-  useEffect(() => {
-    if (debounced === q) return
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev)
-        if (debounced) next.set("q", debounced)
-        else next.delete("q")
-        next.delete("page")
-        return next
-      },
-      { replace: true }
-    )
-  }, [debounced, q, setSearchParams])
+  const [input, setInput] = useUrlTextParam("q", q)
 
   const list = useAdminProducts({ q: q || undefined, page, limit: PAGE_SIZE })
   const toggleActive = useToggleProductActive()

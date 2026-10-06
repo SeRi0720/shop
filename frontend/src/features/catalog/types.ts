@@ -32,3 +32,32 @@ export interface ProductListParams {
   page?: number
   limit?: number
 }
+
+export interface ProductImage {
+  id: number
+  url: string
+  sortOrder: number
+}
+export interface ProductDetail {
+  id: number
+  name: string
+  description: string | null
+  price: number
+  stock: number
+  specs: Record<string, string>
+  isActive: boolean
+  category: NamedItem
+  brand: NamedItem
+  images: ProductImage[]
+  createdAt: string
+  updatedAt: string
+}
+export interface ProductInput {
+  name: string
+  description: string
+  price: number
+  stock: number
+  categoryId: number
+  brandId: number
+  specs: Record<string, string>
+}
