@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from "react-router"
+import { Link, NavLink, Outlet } from "react-router"
 import {
   LayoutDashboard,
   Package,
@@ -44,7 +44,11 @@ function initials(fullName: string) {
 
 function Brand() {
   return (
-    <div className="flex items-center gap-3">
+    <Link
+      to="/"
+      title="Về trang chủ cửa hàng"
+      className="flex items-center gap-3 rounded-lg transition-opacity duration-200 outline-none hover:opacity-80 focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
       <div className="grid size-9 place-items-center rounded-xl bg-brand-gradient text-white shadow-md shadow-black/20">
         <Zap className="size-4" />
       </div>
@@ -52,7 +56,7 @@ function Brand() {
         <p className="text-sm font-semibold tracking-tight">{APP_NAME}</p>
         <p className="text-xs text-muted-foreground">Quản trị</p>
       </div>
-    </div>
+    </Link>
   )
 }
 
