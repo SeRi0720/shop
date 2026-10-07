@@ -19,7 +19,6 @@ export const router = createBrowserRouter([
   {
     element: <RootLayout />,
     children: [
-      { path: "/", element: <HomePage /> },
       { path: "/login", element: <LoginPage /> },
       { path: "/register", element: <RegisterPage /> },
 
@@ -27,6 +26,7 @@ export const router = createBrowserRouter([
       {
         element: <StoreLayout />,
         children: [
+          { path: "/", element: <HomePage /> },
           { path: "/products", element: <ProductsPage /> },
           { path: "/products/:id", element: <ProductDetailPage /> },
         ],

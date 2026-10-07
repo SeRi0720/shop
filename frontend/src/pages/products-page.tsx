@@ -5,26 +5,13 @@ import { Notice } from "@/components/auth/notice"
 import { EmptyState } from "@/components/empty-state"
 import { SimplePagination } from "@/components/simple-pagination"
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
+import { ProductCardSkeleton } from "@/features/catalog/product-card-skeleton"
 import { useProducts, useTaxonomy } from "@/features/catalog/hooks"
 import { ProductCard } from "@/features/catalog/product-card"
 import { ProductFilters } from "@/features/catalog/product-filters"
 import { parseProductParams } from "@/features/catalog/product-params"
 import { getErrorMessage } from "@/lib/api"
 import { cn } from "@/lib/utils"
-
-function CardSkeleton() {
-  return (
-    <div className="overflow-hidden rounded-2xl border bg-card">
-      <Skeleton className="aspect-square w-full rounded-none" />
-      <div className="space-y-2 p-4">
-        <Skeleton className="h-3 w-24" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-5 w-28" />
-      </div>
-    </div>
-  )
-}
 
 export function ProductsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -59,7 +46,7 @@ export function ProductsPage() {
     content = (
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
         {Array.from({ length: 8 }, (_, i) => (
-          <CardSkeleton key={i} />
+          <ProductCardSkeleton key={i} />
         ))}
       </div>
     )

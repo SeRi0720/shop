@@ -154,9 +154,22 @@ export function AdminProductsPage() {
                       colSpan={COLUMN_COUNT}
                       className="py-12 text-center text-muted-foreground"
                     >
-                      {q
-                        ? `Không có sản phẩm nào khớp “${q}”.`
-                        : "Chưa có sản phẩm nào."}
+                      {list.data.total > 0 ? (
+                        <>
+                          Trang này không có sản phẩm.{" "}
+                          <Button
+                            variant="link"
+                            className="h-auto p-0"
+                            onClick={() => goToPage(1)}
+                          >
+                            Về trang 1
+                          </Button>
+                        </>
+                      ) : q ? (
+                        `Không có sản phẩm nào khớp “${q}”.`
+                      ) : (
+                        "Chưa có sản phẩm nào."
+                      )}
                     </TableCell>
                   </TableRow>
                 )}

@@ -11,6 +11,7 @@ import {
 import { APP_NAME } from "@/components/auth/auth-shell"
 import { LogoutButton } from "@/components/auth/logout-button"
 import { useAuth } from "@/features/auth/auth-context"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { cn } from "@/lib/utils"
 
 // Mục chưa có trang thật hiện mờ kèm tuần sẽ làm (theo mục 7 của PROJECT_CONTEXT).
@@ -135,6 +136,7 @@ export function AdminLayout() {
                   <p className="text-xs text-muted-foreground">Quản trị viên</p>
                 </div>
               </div>
+              <ThemeToggle />
               <LogoutButton />
             </div>
           </header>
