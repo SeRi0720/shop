@@ -100,7 +100,7 @@ export function ProductImages({ product }: { product: ProductDetail }) {
           {product.images.map((img) => (
             <li
               key={img.id}
-              className="relative overflow-hidden rounded-lg border"
+              className="relative overflow-hidden border border-foreground"
             >
               <ProductImage
                 src={img.url}
@@ -111,7 +111,7 @@ export function ProductImages({ product }: { product: ProductDetail }) {
                 type="button"
                 variant="secondary"
                 size="icon-xs"
-                className="absolute top-1.5 right-1.5 shadow"
+                className="absolute top-1.5 right-1.5"
                 aria-label="Xóa ảnh"
                 disabled={remove.isPending && remove.variables === img.id}
                 onClick={() => onRemove(img.id)}

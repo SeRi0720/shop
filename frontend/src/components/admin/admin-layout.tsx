@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from "react-router"
+import { Link, NavLink, Outlet } from "react-router"
 import {
   LayoutDashboard,
   Package,
@@ -43,10 +43,14 @@ function initials(fullName: string) {
 
 function Brand() {
   return (
-    <div className="leading-tight">
+    <Link
+      to="/"
+      aria-label={`${APP_NAME} - về trang chủ`}
+      className="block leading-tight transition-colors hover:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-foreground"
+    >
       <p className="label-mono text-sm font-bold">{APP_NAME}®</p>
       <p className="label-mono text-muted-foreground">Quản trị</p>
-    </div>
+    </Link>
   )
 }
 

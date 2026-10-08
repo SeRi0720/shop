@@ -69,14 +69,14 @@ export function HomePage() {
       {/* Banner kiểu tạp chí: chữ cỡ lớn bên trái, ảnh nổi bật bên phải */}
       <section className="grid border border-foreground lg:grid-cols-[7fr_5fr]">
         <div className="flex flex-col justify-between gap-12 p-6 md:p-10">
-          <p className="animate-fade-up label-mono">(01) {APP_NAME}</p>
+          <p className="animate-fade-up label-mono">{APP_NAME}</p>
           <h1
-            className="animate-fade-up text-6xl text-display sm:text-8xl lg:text-[7.5rem]"
+            className="animate-fade-up text-5xl text-display sm:text-7xl lg:text-8xl"
             style={{ animationDelay: "80ms" }}
           >
-            Thiết bị
+            Nâng tầm
             <br />
-            đáng giữ.
+            trải nghiệm.
           </h1>
           <div
             className="flex animate-fade-up flex-wrap items-end justify-between gap-6"
@@ -100,7 +100,7 @@ export function HomePage() {
           className="group flex flex-col gap-3 border-t border-foreground p-4 lg:border-t-0 lg:border-l"
         >
           <div className="flex items-center justify-between label-mono">
-            <span>Nổi bật</span>
+            <span>Mới nhất</span>
             <span>01</span>
           </div>
           <div className="relative aspect-[4/5] w-full overflow-hidden border border-foreground bg-muted">
