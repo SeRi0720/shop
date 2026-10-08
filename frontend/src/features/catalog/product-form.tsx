@@ -60,7 +60,7 @@ export function ProductForm({
 
   // Đợi danh mục/thương hiệu tải xong để Select hiển thị đúng giá trị đang chọn.
   if (categories.isPending || brands.isPending) {
-    return <Skeleton className="h-96 w-full rounded-2xl" />
+    return <Skeleton className="h-96 w-full" />
   }
   if (categories.isError || brands.isError) {
     return (
@@ -79,7 +79,7 @@ export function ProductForm({
     <form onSubmit={submit} noValidate className="space-y-6">
       {serverError && <Notice tone="error">{serverError}</Notice>}
 
-      <div className="space-y-5 rounded-2xl border bg-card p-5 md:p-6">
+      <div className="space-y-5 border border-foreground bg-card p-5 md:p-6">
         <FormRow
           label="Tên sản phẩm"
           htmlFor="name"
@@ -197,7 +197,7 @@ export function ProductForm({
         </FormRow>
       </div>
 
-      <div className="space-y-4 rounded-2xl border bg-card p-5 md:p-6">
+      <div className="space-y-4 border border-foreground bg-card p-5 md:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-semibold">Thông số kỹ thuật</h2>

@@ -1,13 +1,13 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --font-heading: var(--font-sans);
-  --font-sans: "Geist Variable", sans-serif;
+  --font-sans: "Archivo", sans-serif;
+  --font-mono: "Space Mono", ui-monospace, monospace;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -39,6 +39,9 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
+  /* Màu nhấn duy nhất: chỉ dùng cho nút CTA và nhãn giá. Tạo class bg-cta, text-cta, text-cta-foreground */
+  --color-cta: var(--cta);
+  --color-cta-foreground: var(--cta-foreground);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -48,73 +51,79 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* Bảng màu: nền ngà #F9F9F9, chữ #111, nhấn cam công nghiệp #FF5722.
+   Muốn đổi sang xanh chanh: --cta: #CCFF00 (giữ --cta-foreground: #111). */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --background: #f9f9f9;
+  --foreground: #111111;
+  --card: #f9f9f9;
+  --card-foreground: #111111;
+  --popover: #f9f9f9;
+  --popover-foreground: #111111;
+  --primary: #111111;
+  --primary-foreground: #f9f9f9;
+  --secondary: #f9f9f9;
+  --secondary-foreground: #111111;
+  --muted: #ededed;
+  --muted-foreground: #5c5c5c;
+  --accent: #ededed;
+  --accent-foreground: #111111;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --border: #111111;
+  --input: #111111;
+  --ring: #111111;
+  --cta: #ff5722;
+  --cta-foreground: #111111;
+  --chart-1: #111111;
+  --chart-2: #444444;
+  --chart-3: #777777;
+  --chart-4: #aaaaaa;
+  --chart-5: #ff5722;
+  --radius: 0rem;
+  --sidebar: #f9f9f9;
+  --sidebar-foreground: #111111;
+  --sidebar-primary: #111111;
+  --sidebar-primary-foreground: #f9f9f9;
+  --sidebar-accent: #ededed;
+  --sidebar-accent-foreground: #111111;
+  --sidebar-border: #111111;
+  --sidebar-ring: #111111;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --background: #111111;
+  --foreground: #f9f9f9;
+  --card: #111111;
+  --card-foreground: #f9f9f9;
+  --popover: #111111;
+  --popover-foreground: #f9f9f9;
+  --primary: #f9f9f9;
+  --primary-foreground: #111111;
+  --secondary: #111111;
+  --secondary-foreground: #f9f9f9;
+  --muted: #1f1f1f;
+  --muted-foreground: #a3a3a3;
+  --accent: #1f1f1f;
+  --accent-foreground: #f9f9f9;
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --border: #f9f9f9;
+  --input: #f9f9f9;
+  --ring: #f9f9f9;
+  --cta: #ff5722;
+  --cta-foreground: #111111;
+  --chart-1: #f9f9f9;
+  --chart-2: #bbbbbb;
+  --chart-3: #888888;
+  --chart-4: #555555;
+  --chart-5: #ff5722;
+  --sidebar: #111111;
+  --sidebar-foreground: #f9f9f9;
+  --sidebar-primary: #f9f9f9;
+  --sidebar-primary-foreground: #111111;
+  --sidebar-accent: #1f1f1f;
+  --sidebar-accent-foreground: #f9f9f9;
+  --sidebar-border: #f9f9f9;
+  --sidebar-ring: #f9f9f9;
 }
 
 @layer base {
@@ -129,30 +138,9 @@
   }
 }
 
-/* Màu thương hiệu: gradient chàm -> tím -> lục lam. Chỉnh ở đây là đổi toàn bộ giao diện. */
-:root {
-  --brand-from: oklch(0.55 0.22 275);
-  --brand-via: oklch(0.58 0.24 295);
-  --brand-to: oklch(0.72 0.14 215);
-}
-.dark {
-  --brand-from: oklch(0.68 0.19 275);
-  --brand-via: oklch(0.7 0.2 295);
-  --brand-to: oklch(0.78 0.13 215);
-}
-
-/* Tạo các class: text-brand-from, bg-brand-to/20, ... */
-@theme inline {
-  --color-brand-from: var(--brand-from);
-  --color-brand-via: var(--brand-via);
-  --color-brand-to: var(--brand-to);
-}
-
-/* Chuyển động: tạo class animate-fade-up, animate-float, animate-blob */
+/* Chuyển động: chỉ giữ animate-fade-up (đã bỏ blob và float) */
 @theme {
   --animate-fade-up: fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
-  --animate-float: float 9s ease-in-out infinite;
-  --animate-blob: blob 20s ease-in-out infinite;
 
   @keyframes fade-up {
     from {
@@ -164,48 +152,34 @@
       transform: none;
     }
   }
-  @keyframes float {
-    0%,
-    100% {
-      transform: translateY(0) rotate(var(--r, 0deg));
-    }
-    50% {
-      transform: translateY(-12px) rotate(var(--r, 0deg));
-    }
-  }
-  @keyframes blob {
-    0%,
-    100% {
-      transform: translate(0, 0) scale(1);
-    }
-    33% {
-      transform: translate(32px, -40px) scale(1.12);
-    }
-    66% {
-      transform: translate(-24px, 24px) scale(0.95);
-    }
-  }
 }
 
-@utility bg-brand-gradient {
-  background-image: linear-gradient(
-    135deg,
-    var(--brand-from),
-    var(--brand-via) 55%,
-    var(--brand-to)
-  );
+/* Chữ tiêu đề cỡ lớn kiểu tạp chí. Dùng: <h1 className="text-display text-7xl"> */
+@utility text-display {
+  font-weight: 800;
+  font-stretch: 80%;
+  letter-spacing: -0.03em;
+  line-height: 0.88;
+  text-transform: uppercase;
 }
 
-@utility text-brand-gradient {
-  background-image: linear-gradient(
-    135deg,
-    var(--brand-from),
-    var(--brand-via) 55%,
-    var(--brand-to)
-  );
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+/* Nhãn nhỏ kiểu kỹ thuật: số thứ tự, danh mục, thông số */
+@utility label-mono {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Nhãn giá: nền cam, chữ #111, viền 1px */
+@utility price-tag {
+  background: var(--cta);
+  color: var(--cta-foreground);
+  border: 1px solid var(--foreground);
+  padding: 0.25rem 0.625rem;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 700;
 }
 
 /* Tôn trọng người dùng tắt hiệu ứng chuyển động trong hệ điều hành */

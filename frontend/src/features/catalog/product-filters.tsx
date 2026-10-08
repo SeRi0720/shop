@@ -65,7 +65,7 @@ export function ProductFilters({
   const fromSelect = (v: string) => (v === "all" ? undefined : v)
 
   return (
-    <div className="space-y-3 rounded-2xl border bg-card/85 p-4 shadow-sm backdrop-blur">
+    <div className="space-y-3 border border-foreground bg-card p-4">
       <div className="relative">
         <Search
           aria-hidden

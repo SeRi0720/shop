@@ -31,7 +31,7 @@ function NotFound() {
 function DetailSkeleton() {
   return (
     <div className="grid gap-8 lg:grid-cols-2">
-      <Skeleton className="aspect-square w-full rounded-2xl" />
+      <Skeleton className="aspect-[4/5] w-full" />
       <div className="space-y-4">
         <Skeleton className="h-4 w-40" />
         <Skeleton className="h-8 w-3/4" />
@@ -69,7 +69,7 @@ export function ProductDetailPage() {
 
   return (
     <div className="animate-fade-up space-y-10">
-      <nav aria-label="Đường dẫn" className="text-sm text-muted-foreground">
+      <nav aria-label="Đường dẫn" className="label-mono text-muted-foreground">
         <Link to="/products" className="hover:text-foreground">
           Sản phẩm
         </Link>
@@ -79,11 +79,11 @@ export function ProductDetailPage() {
 
       <div className="grid gap-8 lg:grid-cols-2">
         <div className="space-y-3">
-          <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+          <div className="overflow-hidden border border-foreground bg-card">
             <ProductImage
               src={current?.url}
               alt={p.name}
-              className="aspect-square w-full"
+              className="aspect-[4/5] w-full"
             />
           </div>
           {p.images.length > 1 && (
@@ -96,9 +96,9 @@ export function ProductDetailPage() {
                     aria-current={img.id === current?.id}
                     onClick={() => setSelectedId(img.id)}
                     className={cn(
-                      "block w-full overflow-hidden rounded-lg border-2 transition duration-200 outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                      "block w-full overflow-hidden border-2 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground",
                       img.id === current?.id
-                        ? "border-brand-from"
+                        ? "border-foreground"
                         : "border-transparent opacity-70 hover:opacity-100"
                     )}
                   >
@@ -115,13 +115,11 @@ export function ProductDetailPage() {
         </div>
 
         <div className="space-y-5">
-          <p className="text-sm text-muted-foreground">
+          <p className="label-mono text-muted-foreground">
             {p.brand.name} · {p.category.name}
           </p>
-          <h1 className="text-3xl leading-tight font-semibold tracking-tight">
-            {p.name}
-          </h1>
-          <p className="text-3xl font-semibold tabular-nums">
+          <h1 className="text-4xl text-display sm:text-5xl">{p.name}</h1>
+          <p className="inline-block price-tag text-2xl tabular-nums">
             {formatPrice(p.price)}
           </p>
           <div>
@@ -138,15 +136,11 @@ export function ProductDetailPage() {
             </p>
           )}
           <div className="space-y-2 pt-2">
-            <Button
-              size="lg"
-              disabled
-              className="h-11 w-full sm:w-auto sm:px-8"
-            >
+            <Button size="lg" disabled className="w-full sm:w-auto sm:px-8">
               <ShoppingCart />
               Thêm vào giỏ
             </Button>
-            <p className="text-xs text-muted-foreground">
+            <p className="label-mono text-muted-foreground">
               Chức năng giỏ hàng sẽ có ở bản cập nhật tới.
             </p>
           </div>
@@ -154,9 +148,9 @@ export function ProductDetailPage() {
       </div>
 
       {specEntries.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-lg font-semibold">Thông số kỹ thuật</h2>
-          <div className="overflow-hidden rounded-xl border bg-card">
+        <section className="space-y-4">
+          <h2 className="text-3xl text-display">Thông số kỹ thuật</h2>
+          <div className="border border-foreground bg-card">
             <Table>
               <TableBody>
                 {specEntries.map(([key, value]) => (

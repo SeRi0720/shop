@@ -44,7 +44,7 @@ export function ProductsPage() {
     )
   } else if (list.isPending) {
     content = (
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
+      <div className="grid grid-cols-2 border-t border-l border-foreground md:grid-cols-3 xl:grid-cols-4">
         {Array.from({ length: 8 }, (_, i) => (
           <ProductCardSkeleton key={i} />
         ))}

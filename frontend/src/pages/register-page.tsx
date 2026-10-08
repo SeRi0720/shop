@@ -59,13 +59,12 @@ export function RegisterPage() {
   return (
     <AuthShell
       title="Tạo tài khoản"
-      subtitle=""
       footer={
         <>
           Đã có tài khoản?{" "}
           <Link
             to="/login"
-            className="font-medium text-foreground underline-offset-4 hover:underline"
+            className="font-bold text-foreground underline underline-offset-4 hover:no-underline"
           >
             Đăng nhập
           </Link>

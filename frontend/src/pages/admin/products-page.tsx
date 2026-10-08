@@ -64,8 +64,8 @@ export function AdminProductsPage() {
   return (
     <div className="animate-fade-up space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Sản phẩm</h1>
+        <div className="space-y-1">
+          <h1 className="text-4xl text-display">Sản phẩm</h1>
           <p className="text-sm text-muted-foreground">
             Gồm cả sản phẩm đang ẩn. Sản phẩm ẩn không hiện với khách.
           </p>
@@ -88,7 +88,7 @@ export function AdminProductsPage() {
           onChange={(e) => setInput(e.target.value)}
           placeholder="Tìm theo tên sản phẩm..."
           aria-label="Tìm sản phẩm theo tên"
-          className="h-10 pl-9"
+          className="pl-9"
         />
       </div>
 
@@ -105,7 +105,7 @@ export function AdminProductsPage() {
         <>
           <div
             className={cn(
-              "rounded-xl border bg-card transition-opacity",
+              "border border-foreground bg-card transition-opacity",
               list.isPlaceholderData && "opacity-60"
             )}
           >
@@ -129,7 +129,7 @@ export function AdminProductsPage() {
                         <Skeleton className="h-4 w-6" />
                       </TableCell>
                       <TableCell>
-                        <Skeleton className="size-10 rounded-md" />
+                        <Skeleton className="size-10" />
                       </TableCell>
                       <TableCell>
                         <Skeleton className="h-4 w-48" />
@@ -186,12 +186,12 @@ export function AdminProductsPage() {
                         <ProductImage
                           src={p.thumbnailUrl}
                           alt={p.name}
-                          className="size-10 rounded-md"
+                          className="size-10 border border-foreground"
                         />
                       </TableCell>
                       <TableCell>
-                        <p className="font-medium">{p.name}</p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="font-bold">{p.name}</p>
+                        <p className="label-mono text-muted-foreground">
                           {p.brand.name} · {p.category.name}
                         </p>
                       </TableCell>
@@ -202,7 +202,7 @@ export function AdminProductsPage() {
                         {p.stock}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={p.isActive ? "secondary" : "outline"}>
+                        <Badge variant={p.isActive ? "default" : "outline"}>
                           {p.isActive ? "Đang bán" : "Đang ẩn"}
                         </Badge>
                       </TableCell>

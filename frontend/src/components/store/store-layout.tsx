@@ -1,4 +1,3 @@
-import { Zap } from "lucide-react"
 import { Link, NavLink, Outlet } from "react-router"
 import { APP_NAME } from "@/components/auth/auth-shell"
 import { LogoutButton } from "@/components/auth/logout-button"
@@ -11,26 +10,22 @@ export function StoreLayout() {
   const { status, user } = useAuth()
 
   return (
-    <div className="min-h-svh bg-muted/30">
-      <header className="sticky top-0 z-10 border-b bg-background/70 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4">
-          <div className="flex items-center gap-6">
-            <Link to="/" className="flex items-center gap-2.5">
-              <span className="grid size-9 place-items-center rounded-xl bg-brand-gradient text-white shadow-md shadow-black/20">
-                <Zap className="size-4" />
-              </span>
-              <span className="hidden text-sm font-semibold tracking-tight sm:inline">
-                {APP_NAME}
-              </span>
+    <div className="flex min-h-svh flex-col bg-background">
+      <header className="sticky top-0 z-10 border-b border-foreground bg-background">
+        <div className="mx-auto flex h-14 max-w-6xl items-stretch justify-between">
+          <div className="flex items-stretch">
+            <Link
+              to="/"
+              className="flex items-center border-r border-foreground px-4 label-mono text-sm font-bold sm:px-6"
+            >
+              {APP_NAME}®
             </Link>
             <NavLink
               to="/products"
               className={({ isActive }) =>
                 cn(
-                  "text-sm transition-colors duration-200",
-                  isActive
-                    ? "font-medium text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
+                  "flex items-center border-r border-foreground px-4 label-mono transition-colors sm:px-6",
+                  isActive ? "bg-foreground text-background" : "hover:bg-muted"
                 )
               }
             >
@@ -38,7 +33,7 @@ export function StoreLayout() {
             </NavLink>
           </div>
 
-          <div className="flex items-center gap-1 sm:gap-2">
+          <div className="flex items-center gap-1 px-4 sm:gap-2 sm:px-6">
             <ThemeToggle />
             {/* initializing: chưa biết ai đăng nhập, không hiện gì để tránh nhấp nháy */}
             {status === "authenticated" && (
@@ -72,9 +67,26 @@ export function StoreLayout() {
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-8">
+
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
         <Outlet />
       </main>
+
+      <footer className="overflow-hidden border-t border-foreground bg-foreground text-background">
+        <div className="mx-auto max-w-6xl px-4 pt-6 pb-4 sm:px-6">
+          <div className="flex items-center justify-between label-mono">
+            <span>{APP_NAME}®</span>
+            <span>© {new Date().getFullYear()}</span>
+          </div>
+          <p
+            aria-hidden
+            className="mt-12 text-display select-none"
+            style={{ fontSize: "clamp(4rem, 16vw, 11rem)" }}
+          >
+            {APP_NAME}
+          </p>
+        </div>
+      </footer>
     </div>
   )
 }

@@ -48,13 +48,12 @@ export function LoginPage() {
   return (
     <AuthShell
       title="Chào mừng trở lại"
-      subtitle=""
       footer={
         <>
           Chưa có tài khoản?{" "}
           <Link
             to="/register"
-            className="font-medium text-foreground underline-offset-4 hover:underline"
+            className="font-bold text-foreground underline underline-offset-4 hover:no-underline"
           >
             Đăng ký ngay
           </Link>

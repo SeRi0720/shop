@@ -6,15 +6,15 @@ export function SessionLoading() {
     <div
       role="status"
       aria-live="polite"
-      className="grid min-h-svh place-items-center"
+      className="grid min-h-svh place-items-center bg-background"
     >
       {/* Trễ 150ms: tải nhanh thì không nháy spinner, tải chậm mới hiện */}
       <div
         className="flex animate-fade-up flex-col items-center gap-3"
         style={{ animationDelay: "150ms" }}
       >
-        <Loader2 className="size-7 animate-spin text-brand-from" />
-        <span className="text-sm text-muted-foreground">
+        <Loader2 className="size-6 animate-spin text-foreground" />
+        <span className="label-mono text-muted-foreground">
           Đang tải phiên đăng nhập...
         </span>
       </div>

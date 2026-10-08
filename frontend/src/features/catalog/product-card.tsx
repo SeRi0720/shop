@@ -14,31 +14,38 @@ export function ProductCard({
   return (
     <Link
       to={`/products/${product.id}`}
-      className="group flex animate-fade-up flex-col overflow-hidden rounded-2xl border bg-card shadow-sm transition duration-200 outline-none hover:-translate-y-1 hover:shadow-lg focus-visible:ring-3 focus-visible:ring-ring/50"
+      className="group flex animate-fade-up flex-col gap-4 border-r border-b border-foreground bg-card p-4 transition-colors outline-none hover:bg-foreground hover:text-background focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-foreground"
       style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
     >
-      <div className="relative aspect-square overflow-hidden bg-muted">
+      <div className="flex items-center justify-between gap-2 label-mono">
+        <span>{String(index + 1).padStart(2, "0")}</span>
+        <span className="truncate">{product.category.name}</span>
+      </div>
+
+      <div className="relative aspect-[4/5] overflow-hidden border border-current bg-muted">
         <ProductImage
           src={product.thumbnailUrl}
           alt={product.name}
-          className="size-full transition duration-300 group-hover:scale-105"
+          className="size-full"
         />
         {product.stock === 0 && (
-          <Badge variant="secondary" className="absolute top-3 left-3">
+          <Badge variant="secondary" className="absolute top-2 left-2">
             Hết hàng
           </Badge>
         )}
       </div>
-      <div className="flex flex-1 flex-col gap-1 p-4">
-        <p className="text-xs text-muted-foreground">
-          {product.brand.name} · {product.category.name}
-        </p>
-        <h3 className="line-clamp-2 leading-snug font-medium">
-          {product.name}
-        </h3>
-        <p className="mt-auto pt-2 text-lg font-semibold tabular-nums">
+
+      <h3 className="line-clamp-2 text-lg leading-snug font-bold">
+        {product.name}
+      </h3>
+
+      <div className="mt-auto flex items-center justify-between gap-2">
+        <span className="truncate label-mono text-muted-foreground group-hover:text-background/70">
+          {product.brand.name}
+        </span>
+        <span className="shrink-0 price-tag tabular-nums">
           {formatPrice(product.price)}
-        </p>
+        </span>
       </div>
     </Link>
   )

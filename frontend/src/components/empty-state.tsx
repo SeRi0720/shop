@@ -13,11 +13,11 @@ export function EmptyState({
   children?: ReactNode
 }) {
   return (
-    <div className="grid place-items-center gap-3 rounded-2xl border border-dashed bg-card p-12 text-center">
-      <div className="grid size-12 place-items-center rounded-xl bg-brand-from/10 text-brand-from">
+    <div className="grid place-items-center gap-3 rounded-none border border-dashed border-foreground bg-card p-12 text-center">
+      <div className="grid size-12 place-items-center rounded-none border border-foreground text-foreground">
         <Icon aria-hidden className="size-6" />
       </div>
-      <p className="font-medium">{title}</p>
+      <p className="text-lg font-bold">{title}</p>
       {description && (
         <p className="max-w-sm text-sm text-muted-foreground">{description}</p>
       )}

@@ -5,12 +5,11 @@ import { cn } from "@/lib/utils"
 const tones = {
   error: {
     icon: AlertCircle,
-    className: "border-destructive/30 bg-destructive/10 text-destructive",
+    className: "border-destructive bg-transparent text-destructive",
   },
   success: {
     icon: CheckCircle2,
-    className:
-      "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+    className: "border-foreground bg-muted text-foreground",
   },
 }
 
@@ -26,7 +25,7 @@ export function Notice({
     <div
       role={tone === "error" ? "alert" : "status"}
       className={cn(
-        "flex animate-fade-up items-start gap-2.5 rounded-lg border px-3.5 py-3 text-sm",
+        "flex animate-fade-up items-start gap-2.5 rounded-none border px-3.5 py-3 text-sm",
         className
       )}
     >

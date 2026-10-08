@@ -57,7 +57,7 @@ export function TaxonomyPanel({
           </Button>
         </div>
       ) : (
-        <div className="rounded-xl border bg-card">
+        <div className="border border-foreground bg-card">
           <Table>
             <TableHeader>
               <TableRow>

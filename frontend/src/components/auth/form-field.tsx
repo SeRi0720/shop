@@ -35,7 +35,7 @@ export function FormField({
       <div className="group relative">
         <Icon
           aria-hidden
-          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-brand-from"
+          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-foreground"
         />
         <Input
           id={id}
@@ -43,11 +43,7 @@ export function FormField({
           type={isPassword && visible ? "text" : type}
           aria-invalid={!!error}
           aria-describedby={error ? `${id}-error` : undefined}
-          className={cn(
-            "h-11 bg-background/60 pl-10 transition-[box-shadow,border-color] duration-200",
-            isPassword && "pr-11",
-            className
-          )}
+          className={cn("h-11 pl-10", isPassword && "pr-11", className)}
           {...props}
         />
         {isPassword && (
@@ -55,7 +51,7 @@ export function FormField({
             type="button"
             onClick={() => setVisible((v) => !v)}
             aria-label={visible ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-            className="absolute top-1/2 right-2 grid size-8 -translate-y-1/2 place-items-center rounded-md text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className="absolute top-1/2 right-1.5 grid size-9 -translate-y-1/2 place-items-center rounded-none text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-foreground"
           >
             {visible ? (
               <EyeOff className="size-4" />
@@ -69,7 +65,7 @@ export function FormField({
         <p
           id={`${id}-error`}
           role="alert"
-          className="animate-fade-up text-sm text-destructive"
+          className="animate-fade-up text-sm font-medium text-destructive"
         >
           {error}
         </p>

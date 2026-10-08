@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button"
 export function ForbiddenPage() {
   return (
     <div className="grid min-h-svh place-items-center px-4">
-      <div className="w-full max-w-sm animate-fade-up space-y-5 rounded-2xl border bg-card p-8 text-center shadow-sm">
-        <div className="mx-auto grid size-12 place-items-center rounded-xl bg-destructive/10 text-destructive">
+      <div className="w-full max-w-sm animate-fade-up space-y-5 border border-foreground bg-card p-8 text-center">
+        <div className="mx-auto grid size-12 place-items-center border border-destructive text-destructive">
           <ShieldAlert className="size-6" />
         </div>
         <div className="space-y-1.5">

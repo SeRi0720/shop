@@ -58,7 +58,7 @@ export function ProductImages({ product }: { product: ProductDetail }) {
   }
 
   return (
-    <section className="space-y-4 rounded-2xl border bg-card p-5 md:p-6">
+    <section className="space-y-4 border border-foreground bg-card p-5 md:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-semibold">Ảnh sản phẩm</h2>

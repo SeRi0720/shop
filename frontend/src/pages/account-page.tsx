@@ -17,7 +17,7 @@ export function AccountPage() {
 
   return (
     <div className="mx-auto max-w-xl p-6 md:p-10">
-      <div className="animate-fade-up space-y-6 rounded-2xl border bg-card p-7 shadow-sm">
+      <div className="animate-fade-up space-y-6 border border-foreground bg-card p-7">
         <h1 className="text-2xl font-semibold tracking-tight">
           Tài khoản của tôi
         </h1>

@@ -35,7 +35,7 @@ export function AdminProductEditPage() {
       </EmptyState>
     )
   } else if (product.isPending) {
-    body = <Skeleton className="h-96 w-full rounded-2xl" />
+    body = <Skeleton className="h-96 w-full" />
   } else if (product.isError) {
     body = (
       <div className="space-y-3">
