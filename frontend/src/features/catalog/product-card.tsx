@@ -22,7 +22,7 @@ export function ProductCard({
         <span className="truncate">{product.category.name}</span>
       </div>
 
-      <div className="relative aspect-[4/5] overflow-hidden border border-current bg-muted">
+      <div className="relative aspect-square overflow-hidden border border-current bg-muted">
         <ProductImage
           src={product.thumbnailUrl}
           alt={product.name}

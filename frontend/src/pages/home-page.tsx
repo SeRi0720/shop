@@ -74,9 +74,9 @@ export function HomePage() {
             className="animate-fade-up text-5xl text-display sm:text-7xl lg:text-8xl"
             style={{ animationDelay: "80ms" }}
           >
-            Nâng tầm
+            Máy ngon
             <br />
-            trải nghiệm.
+            giá êm.
           </h1>
           <div
             className="flex animate-fade-up flex-wrap items-end justify-between gap-6"
@@ -103,7 +103,7 @@ export function HomePage() {
             <span>Mới nhất</span>
             <span>01</span>
           </div>
-          <div className="relative aspect-[4/5] w-full overflow-hidden border border-foreground bg-muted">
+          <div className="relative aspect-square w-full overflow-hidden border border-foreground bg-muted">
             {latest.isPending ? (
               <Skeleton className="size-full" />
             ) : (

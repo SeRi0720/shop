@@ -31,7 +31,7 @@ function NotFound() {
 function DetailSkeleton() {
   return (
     <div className="grid gap-8 lg:grid-cols-2">
-      <Skeleton className="aspect-[4/5] w-full" />
+      <Skeleton className="aspect-square w-full" />
       <div className="space-y-4">
         <Skeleton className="h-4 w-40" />
         <Skeleton className="h-8 w-3/4" />
@@ -83,7 +83,7 @@ export function ProductDetailPage() {
             <ProductImage
               src={current?.url}
               alt={p.name}
-              className="aspect-[4/5] w-full"
+              className="aspect-square w-full"
             />
           </div>
           {p.images.length > 1 && (
