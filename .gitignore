@@ -27,4 +27,6 @@ Thumbs.db
 /docs 
 skills-lock.json 
 *.tsbuildinfo
+*.spec.ts
+*.sql
 /uploads
