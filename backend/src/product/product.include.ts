@@ -31,3 +31,16 @@ export const productListSelect = {
 export type ProductListRow = Prisma.ProductGetPayload<{
   select: typeof productListSelect;
 }>;
+
+export const productCartSelect = {
+  id: true,
+  name: true,
+  price: true,
+  stock: true,
+  isActive: true,
+  images: {
+    select: { url: true },
+    orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+    take: 1,
+  },
+} satisfies Prisma.ProductSelect;

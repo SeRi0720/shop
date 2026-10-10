@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -13,7 +14,16 @@ import {
 import { ProductQueryDto } from './dto/product-query.dto';
 import { ProductResponseDto } from './dto/product-response.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { productInclude, productListSelect } from './product.include';
+import {
+  productCartSelect,
+  productInclude,
+  productListSelect,
+} from './product.include';
+import type {
+  CartProductInfo,
+  LockedProduct,
+  StockLine,
+} from './product.types';
 
 const MAX_INT = 2_147_483_647;
 
@@ -115,6 +125,61 @@ export class ProductService {
       include: productInclude,
     });
     return ProductResponseDto.from(product);
+  }
+
+  async findManyForCart(ids: number[]): Promise<CartProductInfo[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.prisma.product.findMany({
+      where: { id: { in: ids } },
+      select: productCartSelect,
+    });
+    return rows.map(({ images, ...p }) => ({
+      ...p,
+      thumbnailUrl: images[0]?.url ?? null,
+    }));
+  }
+
+  // Phải gọi bằng `tx` của transaction đang chạy; ORDER BY id để tránh deadlock.
+  lockForUpdate(
+    tx: Prisma.TransactionClient,
+    ids: number[],
+  ): Promise<LockedProduct[]> {
+    if (ids.length === 0) return Promise.resolve([]);
+    return tx.$queryRaw<LockedProduct[]>`
+      SELECT id, name, price, stock, is_active AS "isActive"
+      FROM products
+      WHERE id = ANY(${ids}::int[])
+      ORDER BY id
+      FOR UPDATE`;
+  }
+
+  async decreaseStock(tx: Prisma.TransactionClient, lines: StockLine[]) {
+    for (const { productId, quantity } of this.sortedLines(lines)) {
+      // stock >= quantity nằm trong WHERE nên kho không bao giờ âm.
+      const { count } = await tx.product.updateMany({
+        where: { id: productId, stock: { gte: quantity } },
+        data: { stock: { decrement: quantity } },
+      });
+      if (count !== 1) throw new ConflictException('Không đủ tồn kho');
+    }
+  }
+
+  async increaseStock(tx: Prisma.TransactionClient, lines: StockLine[]) {
+    for (const { productId, quantity } of this.sortedLines(lines)) {
+      await tx.product.update({
+        where: { id: productId },
+        data: { stock: { increment: quantity } },
+      });
+    }
+  }
+
+  private sortedLines(lines: StockLine[]): StockLine[] {
+    for (const l of lines) {
+      if (!Number.isInteger(l.quantity) || l.quantity <= 0) {
+        throw new Error(`Số lượng không hợp lệ cho sản phẩm ${l.productId}`);
+      }
+    }
+    return [...lines].sort((a, b) => a.productId - b.productId);
   }
 
   private async assertRefs(categoryId?: number, brandId?: number) {
