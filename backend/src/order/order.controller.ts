@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import {
   CurrentUser,
@@ -18,6 +27,13 @@ export class OrderController {
 
   @Post() create(@CurrentUser() user: AuthUser, @Body() dto: CreateOrderDto) {
     return this.orderService.create(user.id, dto);
+  }
+
+  @Post(':id/cancel') @HttpCode(HttpStatus.OK) cancel(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseIdPipe) id: number,
+  ) {
+    return this.orderService.cancel(user.id, id);
   }
 
   @Get(':id') findOne(

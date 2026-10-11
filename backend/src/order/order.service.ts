@@ -10,7 +10,8 @@ import { PaymentService } from '../payment/payment.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProductService } from '../product/product.service';
 import { CreateOrderDto } from './dto/create-order.dto';
-import type { OrderView, StockShortage } from './order.types';
+import type { OrderView, StockShortage, LockedOrder } from './order.types';
+import { canTransition, type AdminTargetStatus } from './order-state';
 
 const MAX_INT = 2_147_483_647;
 
@@ -134,8 +135,12 @@ export class OrderService {
 
   /** Chỉ chủ đơn xem được; đơn người khác hoặc không tồn tại đều 404 (không lộ id). */
   async findOneForUser(userId: number, orderId: number): Promise<OrderView> {
+    return this.loadView({ id: orderId, userId });
+  }
+
+  private async loadView(where: Prisma.OrderWhereInput): Promise<OrderView> {
     const order = await this.prisma.order.findFirst({
-      where: { id: orderId, userId },
+      where,
       select: orderSelect,
     });
     if (!order) throw new NotFoundException('Không tìm thấy đơn hàng');
@@ -149,5 +154,91 @@ export class OrderService {
         lineTotal: i.unitPrice * i.quantity,
       })),
     };
+  }
+
+  /** Chủ đơn hủy đơn. Chỉ hủy được khi PENDING. */
+  async cancel(userId: number, orderId: number): Promise<OrderView> {
+    await this.prisma.$transaction(async (tx) => {
+      // Lọc theo userId ngay trong câu khóa: đơn của người khác = không tồn tại (404)
+      const order = await this.lockOrder(tx, orderId, userId);
+      if (!order) throw new NotFoundException('Không tìm thấy đơn hàng');
+      if (order.status !== 'PENDING') {
+        throw new ConflictException('Chỉ hủy được đơn đang chờ xử lý');
+      }
+      await this.cancelLocked(tx, order.id);
+    });
+    return this.findOneForUser(userId, orderId);
+  }
+
+  /** Admin đổi trạng thái theo máy trạng thái. */
+  async changeStatus(
+    orderId: number,
+    to: AdminTargetStatus,
+  ): Promise<OrderView> {
+    await this.prisma.$transaction(async (tx) => {
+      const order = await this.lockOrder(tx, orderId);
+      if (!order) throw new NotFoundException('Không tìm thấy đơn hàng');
+      if (!canTransition(order.status, to, order.paymentMethod)) {
+        throw new ConflictException(
+          `Không thể chuyển đơn từ ${order.status} sang ${to}`,
+        );
+      }
+
+      if (to === 'CANCELLED') {
+        await this.cancelLocked(tx, order.id);
+        return;
+      }
+      await tx.order.update({ where: { id: order.id }, data: { status: to } });
+      if (to === 'COMPLETED' && order.paymentMethod === 'COD') {
+        // Đã giao và thu tiền: payments của đơn COD thành SUCCESS (quyết định 14)
+        await this.payments.setStatus(tx, order.id, 'SUCCESS', [
+          'PENDING_ON_DELIVERY',
+        ]);
+      }
+    });
+    return this.loadView({ id: orderId });
+  }
+
+  // ---- nội bộ (mọi hàm dưới đây chỉ dùng `tx`) ----
+
+  /**
+   * Khóa dòng đơn bằng FOR UPDATE. Hai lần hủy song song xếp hàng ở đây: lần hai
+   * chờ, rồi đọc lại bản đã commit (CANCELLED) nên bị từ chối, không hoàn kho thêm.
+   * `::text` để nhận enum dưới dạng chuỗi chắc chắn.
+   */
+  private async lockOrder(
+    tx: Prisma.TransactionClient,
+    orderId: number,
+    userId?: number,
+  ): Promise<LockedOrder | null> {
+    const rows =
+      userId === undefined
+        ? await tx.$queryRaw<LockedOrder[]>`
+            SELECT id, status::text AS status, payment_method::text AS "paymentMethod"
+            FROM orders WHERE id = ${orderId} FOR UPDATE`
+        : await tx.$queryRaw<LockedOrder[]>`
+            SELECT id, status::text AS status, payment_method::text AS "paymentMethod"
+            FROM orders WHERE id = ${orderId} AND user_id = ${userId} FOR UPDATE`;
+    return rows[0] ?? null;
+  }
+
+  /** Hoàn kho, đổi CANCELLED, đổi payments chưa thu tiền sang FAILED. Đơn đã khóa. */
+  private async cancelLocked(tx: Prisma.TransactionClient, orderId: number) {
+    const items = await tx.orderItem.findMany({
+      where: { orderId },
+      select: { productId: true, quantity: true },
+    });
+    // UPDATE ... increment tự khóa dòng; ProductService sắp theo id nên không deadlock
+    await this.products.increaseStock(tx, items);
+    await tx.order.update({
+      where: { id: orderId },
+      data: { status: 'CANCELLED' },
+    });
+    // Chỉ payments chưa thu tiền. Đơn VNPAY đã PAID (payments SUCCESS) giữ nguyên:
+    // hoàn tiền nằm ngoài phạm vi, ghi vào hạn chế của báo cáo.
+    await this.payments.setStatus(tx, orderId, 'FAILED', [
+      'PENDING_ON_DELIVERY',
+      'PENDING',
+    ]);
   }
 }

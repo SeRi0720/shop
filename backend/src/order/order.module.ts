@@ -6,6 +6,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { ProductModule } from '../product/product.module';
 import { OrderController } from './order.controller';
 import { OrderService } from './order.service';
+import { AdminOrderController } from './admin-order.controller';
 
 @Module({
   imports: [
@@ -15,7 +16,7 @@ import { OrderService } from './order.service';
     ProductModule,
     PaymentModule,
   ],
-  controllers: [OrderController],
+  controllers: [OrderController, AdminOrderController],
   providers: [OrderService],
   exports: [OrderService],
 })

@@ -1,3 +1,11 @@
+import type { OrderStatusValue, PaymentMethodValue } from './order-state';
+
+export interface LockedOrder {
+  id: number;
+  status: OrderStatusValue;
+  paymentMethod: PaymentMethodValue;
+}
+
 export interface OrderLineView {
   productId: number;
   productName: string;
