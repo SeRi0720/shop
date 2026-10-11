@@ -30,4 +30,4 @@ skills-lock.json
 *.spec.ts
 *.sql
 /uploads
-/test
+backend/test

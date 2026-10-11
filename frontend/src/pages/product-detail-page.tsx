@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { PackageX, ShoppingCart } from "lucide-react"
+import { PackageX } from "lucide-react"
 import { Link, useParams } from "react-router"
 import { Notice } from "@/components/auth/notice"
 import { EmptyState } from "@/components/empty-state"
@@ -13,6 +13,7 @@ import { getErrorMessage, isNotFound } from "@/lib/api"
 import { formatPrice } from "@/lib/format"
 import { parseId } from "@/lib/parse-id"
 import { cn } from "@/lib/utils"
+import { AddToCart } from "@/features/cart/add-to-cart"
 
 function NotFound() {
   return (
@@ -135,15 +136,7 @@ export function ProductDetailPage() {
               {p.description}
             </p>
           )}
-          <div className="space-y-2 pt-2">
-            <Button size="lg" disabled className="w-full sm:w-auto sm:px-8">
-              <ShoppingCart />
-              Thêm vào giỏ
-            </Button>
-            <p className="label-mono text-muted-foreground">
-              Chức năng giỏ hàng sẽ có ở bản cập nhật tới.
-            </p>
-          </div>
+          <AddToCart productId={p.id} stock={p.stock} />
         </div>
       </div>
 

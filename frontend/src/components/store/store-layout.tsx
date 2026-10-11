@@ -5,9 +5,13 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/features/auth/auth-context"
 import { cn } from "@/lib/utils"
+import { ShoppingCart } from "lucide-react"
+import { useCart } from "@/features/cart/hooks"
 
 export function StoreLayout() {
   const { status, user } = useAuth()
+  const cart = useCart()
+  const cartCount = cart.data?.totalQuantity ?? 0
 
   return (
     <div className="flex min-h-svh flex-col bg-background">
@@ -43,6 +47,31 @@ export function StoreLayout() {
                     <Link to="/admin">Quản trị</Link>
                   </Button>
                 )}
+                <Button
+                  asChild
+                  variant="ghost"
+                  size="icon-sm"
+                  className="relative"
+                >
+                  <Link
+                    to="/cart"
+                    aria-label={
+                      cartCount > 0
+                        ? `Giỏ hàng, ${cartCount} sản phẩm`
+                        : "Giỏ hàng"
+                    }
+                  >
+                    <ShoppingCart />
+                    {cartCount > 0 && (
+                      <span
+                        aria-hidden
+                        className="pointer-events-none absolute -top-1.5 -right-1.5 grid h-4 min-w-4 place-items-center bg-foreground px-1 label-mono text-[10px] leading-none text-background"
+                      >
+                        {cartCount > 99 ? "99+" : cartCount}
+                      </span>
+                    )}
+                  </Link>
+                </Button>
                 <Button
                   asChild
                   variant="ghost"
