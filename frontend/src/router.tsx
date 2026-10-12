@@ -15,6 +15,8 @@ import { ProductDetailPage } from "@/pages/product-detail-page"
 import { ProductsPage } from "@/pages/products-page"
 import { RegisterPage } from "@/pages/register-page"
 import { CartPage } from "@/pages/cart-page"
+import { CheckoutPage } from "@/pages/checkout-page"
+import { OrderDetailPage } from "@/pages/order-detail-page"
 
 export const router = createBrowserRouter([
   {
@@ -32,7 +34,11 @@ export const router = createBrowserRouter([
           { path: "/products/:id", element: <ProductDetailPage /> },
           {
             element: <ProtectedRoute />,
-            children: [{ path: "/cart", element: <CartPage /> }],
+            children: [
+              { path: "/cart", element: <CartPage /> },
+              { path: "/checkout", element: <CheckoutPage /> },
+              { path: "/orders/:id", element: <OrderDetailPage /> },
+            ],
           },
         ],
       },

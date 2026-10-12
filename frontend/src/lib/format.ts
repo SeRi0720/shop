@@ -5,3 +5,10 @@ const vnd = new Intl.NumberFormat("vi-VN", {
 })
 
 export const formatPrice = (value: number) => vnd.format(value)
+
+const dateTime = new Intl.DateTimeFormat("vi-VN", {
+  dateStyle: "short",
+  timeStyle: "short",
+})
+
+export const formatDateTime = (iso: string) => dateTime.format(new Date(iso))

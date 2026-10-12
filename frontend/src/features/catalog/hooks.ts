@@ -29,7 +29,7 @@ const ADMIN_PRODUCTS = "admin-products"
 const PRODUCT_KEYS = [ADMIN_PRODUCTS, "admin-product", "products", "product"]
 
 // Admin đổi dữ liệu thì làm mất hiệu lực cả bốn nhóm cache liên quan.
-const invalidateProducts = (qc: QueryClient) =>
+export const invalidateProducts = (qc: QueryClient) =>
   Promise.all(
     PRODUCT_KEYS.map((key) => qc.invalidateQueries({ queryKey: [key] }))
   )
