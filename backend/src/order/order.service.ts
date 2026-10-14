@@ -8,7 +8,7 @@ import {
 import { CartService } from '../cart/cart.service';
 import type { Prisma } from '../generated/prisma/client';
 import { PaymentService } from '../payment/payment.service';
-import { VnpayService } from '../payment/vnpay.service';
+import { VnpayService, formatVnDate } from '../payment/vnpay.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProductService } from '../product/product.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -18,10 +18,25 @@ import type {
   LockedOrder,
   VnpayApplyOutcome,
   VnpaySyncState,
+  ExpirySummary,
 } from './order.types';
 import { canTransition, type AdminTargetStatus } from './order-state';
 
 const MAX_INT = 2_147_483_647;
+
+// Đơn VNPay chỉ bị tự hủy sau khi URL hết hạn + phần đệm cho IPN/truy vấn đến muộn.
+const EXPIRY_GRACE_MINUTES = 2;
+const EXPIRY_BATCH_SIZE = 20;
+// VNPay từ chối truy vấn lặp trong một khoảng thời gian (mã 94, không ký). Sau lần bị từ chối,
+// không hỏi lại đơn đó trong khoảng này để không tự gia hạn việc bị từ chối. Cửa sổ thật
+// của VNPay chưa được tài liệu nêu rõ: 5 phút là giá trị khởi đầu, chỉnh theo thực nghiệm.
+const QUERY_BACKOFF_MS = 5 * 60_000;
+
+/** "HH:mm" theo giờ Việt Nam, dùng trong thông báo cho người dùng. */
+const vnClock = (d: Date) => {
+  const s = formatVnDate(d);
+  return `${s.slice(8, 10)}:${s.slice(10, 12)}`;
+};
 
 const orderSelect = {
   id: true,
@@ -47,6 +62,8 @@ const orderSelect = {
 @Injectable()
 export class OrderService {
   private readonly logger = new Logger(OrderService.name);
+  // orderId -> thời điểm (ms) được phép hỏi VNPay lại. Chỉ giữ trong bộ nhớ của instance này.
+  private readonly queryBackoffUntil = new Map<number, number>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -67,6 +84,8 @@ export class OrderService {
       throw new BadRequestException('VNPay chưa được cấu hình');
     }
 
+    // QUY TẮC SỐNG CÒN: trong callback chỉ dùng `tx`, không dùng `this.prisma`.
+    // Dùng nhầm this.prisma chạy ngoài transaction mà không báo lỗi.
     const { orderId, vnpayPayment } = await this.prisma.$transaction(
       async (tx) => {
         // 1. Khóa giỏ trước, rồi mới đọc giỏ (chặn đặt trùng của cùng một người)
@@ -194,8 +213,26 @@ export class OrderService {
     };
   }
 
-  /** Chủ đơn hủy đơn. Chỉ hủy được khi PENDING. */
+  /**
+   * Chủ đơn hủy đơn. Chỉ hủy được khi PENDING. Đơn VNPAY PENDING chỉ hủy được khi URL
+   * đã hết hạn, và phải hỏi VNPay trước (quyết định 15).
+   */
   async cancel(userId: number, orderId: number): Promise<OrderView> {
+    // Đọc không khóa chỉ để biết có phải đơn VNPay đang chờ không: bước đó cần gọi mạng
+    // nên không được làm trong transaction. Quyết định cuối vẫn nằm dưới khóa bên dưới.
+    const peek = await this.prisma.order.findFirst({
+      where: { id: orderId, userId },
+      select: { status: true, paymentMethod: true, createdAt: true },
+    });
+    if (!peek) throw new NotFoundException('Không tìm thấy đơn hàng');
+    if (peek.paymentMethod === 'VNPAY' && peek.status === 'PENDING') {
+      const verdict = await this.checkVnpayBeforeCancel(
+        orderId,
+        peek.createdAt,
+      );
+      if (verdict === 'DONE') return this.findOneForUser(userId, orderId);
+    }
+
     await this.prisma.$transaction(async (tx) => {
       // Lọc theo userId ngay trong câu khóa: đơn của người khác = không tồn tại (404)
       const order = await this.lockOrder(tx, orderId, userId);
@@ -213,6 +250,21 @@ export class OrderService {
     orderId: number,
     to: AdminTargetStatus,
   ): Promise<OrderView> {
+    if (to === 'CANCELLED') {
+      // Cùng điều kiện với chủ đơn hủy (quyết định 15). Không thấy đơn thì để transaction báo 404.
+      const peek = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        select: { status: true, paymentMethod: true, createdAt: true },
+      });
+      if (peek?.paymentMethod === 'VNPAY' && peek.status === 'PENDING') {
+        const verdict = await this.checkVnpayBeforeCancel(
+          orderId,
+          peek.createdAt,
+        );
+        if (verdict === 'DONE') return this.loadView({ id: orderId });
+      }
+    }
+
     await this.prisma.$transaction(async (tx) => {
       const order = await this.lockOrder(tx, orderId);
       if (!order) throw new NotFoundException('Không tìm thấy đơn hàng');
@@ -316,6 +368,12 @@ export class OrderService {
     if (payment.status === 'SUCCESS') return 'PAID';
     if (payment.status === 'FAILED') return 'FAILED';
 
+    const backoffUntil = this.queryBackoffUntil.get(orderId);
+    if (backoffUntil !== undefined) {
+      if (Date.now() < backoffUntil) return 'ERROR'; // VNPay vừa từ chối vì trùng yêu cầu
+      this.queryBackoffUntil.delete(orderId);
+    }
+
     const result = await this.vnpay.queryTransaction({
       txnRef: payment.txnRef,
       amount: payment.amount,
@@ -330,6 +388,9 @@ export class OrderService {
       );
       this.logger.log(`queryDr đơn #${orderId}: ${result.kind} -> ${outcome}`);
     } else if (result.kind === 'ERROR') {
+      if (result.rateLimited) {
+        this.queryBackoffUntil.set(orderId, Date.now() + QUERY_BACKOFF_MS);
+      }
       this.logger.warn(`queryDr đơn #${orderId} lỗi: ${result.reason}`);
     }
 
@@ -338,6 +399,129 @@ export class OrderService {
     if (latest?.status === 'SUCCESS') return 'PAID';
     if (latest?.status === 'FAILED') return 'FAILED';
     return result.kind === 'ERROR' ? 'ERROR' : 'PENDING';
+  }
+
+  /**
+   * Kiểm tra thanh toán thủ công (quyết định 24): chủ đơn hoặc admin. Chỉ đơn VNPAY đang
+   * PENDING. Đơn của người khác trả 404 (không lộ id).
+   */
+  async checkPayment(
+    actor: { id: number; role: 'USER' | 'ADMIN' },
+    orderId: number,
+  ): Promise<OrderView> {
+    const where: Prisma.OrderWhereInput =
+      actor.role === 'ADMIN'
+        ? { id: orderId }
+        : { id: orderId, userId: actor.id };
+    const order = await this.prisma.order.findFirst({
+      where,
+      select: { status: true, paymentMethod: true },
+    });
+    if (!order) throw new NotFoundException('Không tìm thấy đơn hàng');
+    if (order.paymentMethod !== 'VNPAY' || order.status !== 'PENDING') {
+      throw new ConflictException(
+        'Chỉ kiểm tra được đơn VNPay đang chờ thanh toán',
+      );
+    }
+    await this.syncVnpayPayment(orderId);
+    return this.loadView(where);
+  }
+
+  /**
+   * Tự hủy đơn VNPay quá hạn (quyết định 14). Từng đơn: hỏi VNPay trước (ngoài transaction);
+   * đã thanh toán thì áp dụng và KHÔNG hủy; chỉ hủy khi VNPay xác nhận chưa có thanh toán
+   * hoặc báo thất bại. Truy vấn lỗi thì bỏ qua, thử lại ở lượt sau. Nhận `now` để test được.
+   */
+  async cancelExpiredVnpayOrders(
+    now: Date = new Date(),
+  ): Promise<ExpirySummary> {
+    const summary: ExpirySummary = {
+      checked: 0,
+      paid: 0,
+      cancelled: 0,
+      skipped: 0,
+    };
+    // Chưa cấu hình thì không thể hỏi VNPay, mà không hỏi thì không được hủy.
+    if (!this.vnpay.isConfigured()) return summary;
+
+    const cutoff = new Date(
+      now.getTime() -
+        (this.vnpay.urlTtlMinutes + EXPIRY_GRACE_MINUTES) * 60_000,
+    );
+    const candidates = await this.prisma.order.findMany({
+      where: {
+        paymentMethod: 'VNPAY',
+        status: 'PENDING',
+        createdAt: { lt: cutoff },
+      },
+      orderBy: { id: 'asc' },
+      take: EXPIRY_BATCH_SIZE,
+      select: { id: true },
+    });
+
+    for (const { id } of candidates) {
+      summary.checked++;
+      try {
+        const state = await this.syncVnpayPayment(id); // ngoài transaction
+        if (state === 'PAID') summary.paid++;
+        else if (state === 'FAILED')
+          summary.cancelled++; // sync đã hủy đơn
+        else if (state === 'PENDING') {
+          // VNPay trả lời bình thường và chưa có thanh toán
+          if (await this.cancelUnpaidVnpay(id)) summary.cancelled++;
+          else summary.skipped++;
+        } else summary.skipped++; // ERROR: không biết đã trả tiền chưa, không hủy
+      } catch (error) {
+        summary.skipped++;
+        this.logger.error(`Tự hủy đơn #${id} lỗi: ${String(error)}`);
+      }
+    }
+    return summary;
+  }
+
+  /**
+   * Quyết định 15, chạy NGOÀI transaction. Ném 409 nếu chưa được hủy;
+   * trả 'DONE' nếu trong lúc kiểm tra đơn đã được hủy (không cần hủy nữa);
+   * trả 'PROCEED' nếu được phép đi tiếp vào bước hủy dưới khóa.
+   */
+  private async checkVnpayBeforeCancel(
+    orderId: number,
+    createdAt: Date,
+    now: Date = new Date(),
+  ): Promise<'PROCEED' | 'DONE'> {
+    const unverifiable = new ConflictException(
+      'Chưa kiểm tra được thanh toán VNPay, vui lòng thử lại sau',
+    );
+    if (!this.vnpay.isConfigured()) throw unverifiable;
+
+    const expiresAt = new Date(
+      createdAt.getTime() + this.vnpay.urlTtlMinutes * 60_000,
+    );
+    if (now.getTime() < expiresAt.getTime()) {
+      throw new ConflictException(
+        `Đơn đang chờ thanh toán VNPay, sẽ tự hủy sau ${vnClock(expiresAt)} nếu chưa thanh toán`,
+      );
+    }
+    // Hết hạn: người dùng có thể đã trả tiền mà chưa ai xác nhận, nên hỏi VNPay trước khi hủy.
+    const state = await this.syncVnpayPayment(orderId);
+    if (state === 'PAID') {
+      throw new ConflictException('Đơn đã thanh toán, không thể hủy');
+    }
+    if (state === 'FAILED') return 'DONE';
+    if (state === 'ERROR') throw unverifiable;
+    return 'PROCEED';
+  }
+
+  /** Hủy một đơn VNPay chưa thanh toán. Khóa dòng đơn rồi kiểm tra LẠI trước khi hủy. */
+  private async cancelUnpaidVnpay(orderId: number): Promise<boolean> {
+    return this.prisma.$transaction(async (tx) => {
+      const order = await this.lockOrder(tx, orderId);
+      // Có thể IPN vừa tới (PAID) hoặc lượt khác vừa hủy (CANCELLED): để yên.
+      if (!order || order.status !== 'PENDING') return false;
+      if (order.paymentMethod !== 'VNPAY') return false;
+      await this.cancelLocked(tx, order.id);
+      return true;
+    });
   }
 
   // ---- nội bộ (mọi hàm dưới đây chỉ dùng `tx`) ----

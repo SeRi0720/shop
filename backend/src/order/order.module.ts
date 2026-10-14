@@ -8,6 +8,7 @@ import { OrderController } from './order.controller';
 import { OrderService } from './order.service';
 import { AdminOrderController } from './admin-order.controller';
 import { VnpayController } from './vnpay.controller';
+import { OrderExpiryScheduler } from './order-expiry.scheduler';
 
 @Module({
   imports: [
@@ -18,7 +19,7 @@ import { VnpayController } from './vnpay.controller';
     PaymentModule,
   ],
   controllers: [OrderController, AdminOrderController, VnpayController],
-  providers: [OrderService],
+  providers: [OrderService, OrderExpiryScheduler],
   exports: [OrderService],
 })
 export class OrderModule {}

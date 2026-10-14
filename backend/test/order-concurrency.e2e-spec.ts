@@ -188,7 +188,12 @@ describe('Tranh chấp khi đặt và hủy đơn (PostgreSQL thật)', () => {
 
       const placed = await orders.create(
         user.id,
-        { ...dto, paymentMethod: 'VNPAY' },
+        {
+          shippingName: dto.shippingName,
+          shippingPhone: dto.shippingPhone,
+          shippingAddress: dto.shippingAddress,
+          paymentMethod: 'VNPAY',
+        },
         '::1',
       );
 

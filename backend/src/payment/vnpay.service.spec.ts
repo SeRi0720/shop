@@ -252,6 +252,28 @@ describe('VnpayService', () => {
       if (r.kind === 'PAID')
         expect(r.payload).not.toHaveProperty('vnp_SecureHash');
     });
+    it('FAILED (TransactionStatus 11: hết hạn chờ thanh toán)', async () => {
+      mockFetch(signedResponse({ vnp_TransactionStatus: '11' }));
+      expect((await query()).kind).toBe('FAILED');
+    });
+    it('94 (trùng yêu cầu) không có chữ ký: ERROR nêu đúng mã, rateLimited, không báo sai chữ ký', async () => {
+      mockFetch({
+        vnp_ResponseCode: '94',
+        vnp_Message: 'Request is duplicated',
+      });
+      const r = await query();
+      expect(r).toMatchObject({ kind: 'ERROR', rateLimited: true });
+      if (r.kind === 'ERROR') {
+        expect(r.reason).toContain('94');
+        expect(r.reason).not.toContain('Chữ ký');
+      }
+    });
+    it('lỗi không ký khác (99): ERROR, không rateLimited', async () => {
+      mockFetch({ vnp_ResponseCode: '99', vnp_Message: 'Unknown' });
+      const r = await query();
+      expect(r).toMatchObject({ kind: 'ERROR' });
+      expect((r as { rateLimited?: boolean }).rateLimited).toBeFalsy();
+    });
     it('FAILED (TransactionStatus 02)', async () => {
       mockFetch(signedResponse({ vnp_TransactionStatus: '02' }));
       expect((await query()).kind).toBe('FAILED');

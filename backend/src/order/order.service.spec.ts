@@ -79,6 +79,12 @@ function setup() {
           throw new Error('this.prisma bị dùng bên trong transaction');
         return Promise.resolve(orderRow);
       }),
+      // Admin hủy: đọc trước (ngoài transaction) để biết có phải đơn VNPay đang chờ không.
+      findUnique: jest.fn().mockImplementation(() => {
+        if (txOpen)
+          throw new Error('this.prisma bị dùng bên trong transaction');
+        return Promise.resolve(orderRow);
+      }),
     },
   };
 

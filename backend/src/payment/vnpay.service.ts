@@ -14,7 +14,7 @@ export type VnpayQueryOutcome =
   | { kind: 'PAID'; transactionNo: string; payload: Record<string, string> }
   | { kind: 'FAILED'; payload: Record<string, string> }
   | { kind: 'NOT_FOUND_OR_PENDING' }
-  | { kind: 'ERROR'; reason: string };
+  | { kind: 'ERROR'; reason: string; rateLimited?: boolean };
 
 const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
 const QUERY_TIMEOUT_MS = 5000;
@@ -271,6 +271,18 @@ export class VnpayService implements OnModuleInit {
     }
     const get = (k: string) => r[k] ?? '';
 
+    // Lỗi mức hệ thống của VNPay (ví dụ 94 "Request is duplicated") KHÔNG kèm chữ ký.
+    // Không tin để đổi dữ liệu, nhưng phải nêu đúng mã thay vì báo nhầm "sai chữ ký".
+    if (!get('vnp_SecureHash')) {
+      const code = get('vnp_ResponseCode') || '(trống)';
+      const message = get('vnp_Message').slice(0, 100);
+      return {
+        kind: 'ERROR',
+        reason: `VNPay trả lỗi không ký: ResponseCode ${code}${message ? ` (${message})` : ''}`,
+        rateLimited: code === '94', // trùng yêu cầu trong thời gian giới hạn
+      };
+    }
+
     const signed = QUERY_RESPONSE_FIELDS.map(get).join('|');
     if (!safeEqual(hmacSha512(cfg.hashSecret, signed), get('vnp_SecureHash'))) {
       return { kind: 'ERROR', reason: 'Chữ ký phản hồi không hợp lệ' };
@@ -303,6 +315,11 @@ export class VnpayService implements OnModuleInit {
       case '01':
         return { kind: 'NOT_FOUND_OR_PENDING' }; // chưa hoàn tất
       case '02':
+        return { kind: 'FAILED', payload };
+      case '11':
+        // Đã hết hạn chờ thanh toán. Bảng TransactionStatus không liệt kê mã này (quan sát
+        // thực tế ở sandbox), nhưng ResponseCode 11 có nghĩa đó và tài liệu IPN ghi
+        // "khác 00 = không thành công tại VNPAY". Hết hạn thì không thể trả tiền nữa.
         return { kind: 'FAILED', payload };
       default: // 04 (giao dịch đảo), 07 (nghi ngờ)...: không tự quyết định
         return {

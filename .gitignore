@@ -29,3 +29,4 @@ skills-lock.json
 *.tsbuildinfo
 *.sql
 /uploads
+backend/scripts

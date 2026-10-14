@@ -1,6 +1,6 @@
 // Dữ liệu mẫu cho `npx prisma db seed`. Giá VND (số nguyên). Đây là dữ liệu minh họa,
 // thông số không nhất thiết khớp 100% với sản phẩm thật ngoài thị trường.
-// `specs` là object phẳng, giá trị là chuỗi (quyết định 11 của kế hoạch tuần 3).
+// `specs` là object phẳng, giá trị là chuỗi.
 
 export type SeedProduct = {
   name: string;

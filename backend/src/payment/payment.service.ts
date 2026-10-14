@@ -31,7 +31,7 @@ export class PaymentService {
   }
 
   /**
-   * Đơn VNPAY: một dòng payments PENDING ngay khi tạo đơn (quyết định 5).
+   * Đơn VNPAY: một dòng payments PENDING ngay khi tạo đơn.
    * Trả về `createdAt` để dựng URL (vnp_CreateDate) và để truy vấn lại sau này.
    * PHẢI gọi bằng `tx`.
    */

@@ -48,3 +48,11 @@ export type VnpayApplyOutcome =
 
 /** Trạng thái thanh toán thật sau khi đồng bộ với VNPay. */
 export type VnpaySyncState = 'PAID' | 'FAILED' | 'PENDING' | 'ERROR';
+
+/** Tóm tắt một lượt tự hủy đơn VNPay quá hạn (để ghi log và để test). */
+export interface ExpirySummary {
+  checked: number;
+  paid: number; // VNPay báo đã thanh toán nên đơn sang PAID, không hủy
+  cancelled: number;
+  skipped: number; // truy vấn lỗi hoặc đơn đổi trạng thái giữa chừng: thử lại lượt sau
+}
