@@ -26,6 +26,8 @@ export interface OrderView {
   note: string | null;
   createdAt: Date;
   items: OrderLineView[];
+  /** Chỉ có khi vừa tạo đơn VNPAY: trình duyệt chuyển hướng tới đây. Không lưu DB. */
+  paymentUrl?: string;
 }
 
 export interface StockShortage {
@@ -34,3 +36,15 @@ export interface StockShortage {
   requested: number;
   available: number;
 }
+
+/** Kết quả áp dụng một kết quả VNPay (IPN hoặc queryDr) vào đơn. */
+export type VnpayApplyOutcome =
+  | 'APPLIED_PAID' // đơn PENDING -> PAID
+  | 'APPLIED_FAILED' // đơn PENDING -> CANCELLED, hoàn kho
+  | 'LATE_PAID' // đã thu tiền nhưng đơn không còn PENDING (ghi payments SUCCESS)
+  | 'ALREADY_CONFIRMED'
+  | 'NOT_FOUND'
+  | 'AMOUNT_MISMATCH';
+
+/** Trạng thái thanh toán thật sau khi đồng bộ với VNPay. */
+export type VnpaySyncState = 'PAID' | 'FAILED' | 'PENDING' | 'ERROR';

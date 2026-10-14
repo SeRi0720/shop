@@ -2,11 +2,12 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
+  Ip,
   Param,
   Post,
   UseGuards,
-  HttpCode,
-  HttpStatus,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import {
@@ -25,8 +26,12 @@ import { OrderService } from './order.service';
 export class OrderController {
   constructor(private readonly orderService: OrderService) {}
 
-  @Post() create(@CurrentUser() user: AuthUser, @Body() dto: CreateOrderDto) {
-    return this.orderService.create(user.id, dto);
+  @Post() create(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: CreateOrderDto,
+    @Ip() ip: string,
+  ) {
+    return this.orderService.create(user.id, dto, ip);
   }
 
   @Post(':id/cancel') @HttpCode(HttpStatus.OK) cancel(

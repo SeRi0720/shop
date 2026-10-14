@@ -4,6 +4,7 @@ import type { PrismaClient } from '../src/generated/prisma/client';
 import type { CreateOrderDto } from '../src/order/dto/create-order.dto';
 import { OrderService } from '../src/order/order.service';
 import { PaymentService } from '../src/payment/payment.service';
+import { VnpayService, formatVnDate } from '../src/payment/vnpay.service';
 import type { PrismaService } from '../src/prisma/prisma.service';
 import { ProductService } from '../src/product/product.service';
 import {
@@ -52,7 +53,9 @@ describe('Tranh chấp khi đặt và hủy đơn (PostgreSQL thật)', () => {
     const products = new ProductService(db);
     const carts = new CartService(db, products);
     const payments = new PaymentService(db);
-    orders = new OrderService(db, carts, products, payments);
+    // Bản thật (không mock): chỉ đọc process.env khi dùng, nên các ca COD không cần cấu hình.
+    const vnpay = new VnpayService();
+    orders = new OrderService(db, carts, products, payments, vnpay);
   });
 
   afterAll(async () => {
@@ -167,6 +170,54 @@ describe('Tranh chấp khi đặt và hủy đơn (PostgreSQL thật)', () => {
           })
         ).status,
       ).toBe('FAILED');
+    }
+  });
+
+  it('(d) đặt đơn VNPAY: payments PENDING có txnRef, kho trừ một lần, URL mang đúng txnRef và createdAt', async () => {
+    const keys = ['VNPAY_TMN_CODE', 'VNPAY_HASH_SECRET', 'VNPAY_RETURN_URL'];
+    const saved = keys.map((k) => process.env[k]);
+    process.env.VNPAY_TMN_CODE = 'TESTTMN1';
+    process.env.VNPAY_HASH_SECRET = 'TESTSECRETKEY1234567890ABCDEFGHIJ';
+    process.env.VNPAY_RETURN_URL =
+      'http://localhost:5173/api/payments/vnpay/return';
+    try {
+      await resetDatabase(prisma);
+      const product = await createProduct(prisma, { stock: 5 });
+      const user = await createUser(prisma, 'vnpay');
+      await fillCart(prisma, user.id, [{ productId: product.id, quantity: 2 }]);
+
+      const placed = await orders.create(
+        user.id,
+        { ...dto, paymentMethod: 'VNPAY' },
+        '::1',
+      );
+
+      const payment = await prisma.payment.findFirstOrThrow({
+        where: { orderId: placed.id },
+      });
+      expect(payment.status).toBe('PENDING');
+      expect(payment.txnRef).toMatch(/^\d{22}$/);
+      const url = new URL(placed.paymentUrl as string);
+      expect(url.searchParams.get('vnp_TxnRef')).toBe(payment.txnRef);
+      expect(url.searchParams.get('vnp_CreateDate')).toBe(
+        formatVnDate(payment.createdAt),
+      );
+      expect(url.searchParams.get('vnp_Amount')).toBe(
+        String(payment.amount * 100),
+      );
+      expect(
+        (await prisma.product.findUniqueOrThrow({ where: { id: product.id } }))
+          .stock,
+      ).toBe(3);
+      expect(
+        (await prisma.order.findUniqueOrThrow({ where: { id: placed.id } }))
+          .status,
+      ).toBe('PENDING');
+    } finally {
+      keys.forEach((k, i) => {
+        if (saved[i] === undefined) delete process.env[k];
+        else process.env[k] = saved[i];
+      });
     }
   });
 });

@@ -15,6 +15,10 @@ import {
 } from './order-state';
 import { OrderService } from './order.service';
 
+const PAYMENT_CREATED_AT = new Date('2026-10-13T03:00:00Z');
+const TXN_REF = '0000010020261013101010';
+const PAYMENT_URL = 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?mock=1';
+
 const dto = (over: Record<string, unknown> = {}) =>
   ({
     shippingName: 'Nguyễn Văn A',
@@ -92,10 +96,25 @@ function setup() {
   };
   const payments = {
     createCod: rec('payment.createCod', { id: 1 }),
+    createVnpay: rec('payment.createVnpay', {
+      id: 1,
+      createdAt: PAYMENT_CREATED_AT,
+    }),
     setStatus: rec('payment.setStatus', 1),
     findByOrderId: jest
       .fn()
       .mockResolvedValue({ status: 'PENDING_ON_DELIVERY', amount: 2000 }),
+  };
+
+  const vnpay = {
+    isConfigured: jest.fn().mockReturnValue(true),
+    makeTxnRef: jest.fn().mockReturnValue(TXN_REF),
+    // Chỉ được gọi SAU commit: gọi lúc transaction đang mở = dựng URL sai chỗ.
+    buildPaymentUrl: jest.fn().mockImplementation(() => {
+      if (txOpen)
+        throw new Error('buildPaymentUrl bị gọi bên trong transaction');
+      return PAYMENT_URL;
+    }),
   };
 
   const service = new OrderService(
@@ -103,8 +122,9 @@ function setup() {
     cart as never,
     products as never,
     payments as never,
+    vnpay as never,
   );
-  return { service, calls, tx, prisma, cart, products, payments };
+  return { service, calls, tx, prisma, cart, products, payments, vnpay };
 }
 
 const lockedRow = (status: string, paymentMethod: string) => [
@@ -227,12 +247,73 @@ describe('OrderService.create', () => {
     expect(s.tx.order.create).toHaveBeenCalledTimes(1);
   });
 
-  it('VNPAY: 400, không mở transaction', async () => {
+  it('VNPAY khi chưa cấu hình: 400, không mở transaction, không dựng URL', async () => {
     const s = setup();
+    s.vnpay.isConfigured.mockReturnValue(false);
     await expect(
       s.service.create(7, dto({ paymentMethod: 'VNPAY' })),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(s.prisma.$transaction).not.toHaveBeenCalled();
+    expect(s.vnpay.buildPaymentUrl).not.toHaveBeenCalled();
+  });
+
+  it('VNPAY: payments tạo bằng createVnpay (cùng tx, sau khi trừ kho), không createCod; URL dựng sau commit từ createdAt của payments', async () => {
+    const s = setup();
+    const res = await s.service.create(
+      7,
+      dto({ paymentMethod: 'VNPAY' }),
+      '203.0.113.5',
+    );
+
+    expect(s.tx.order.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ paymentMethod: 'VNPAY' }),
+      select: { id: true },
+    });
+    expect(s.vnpay.makeTxnRef).toHaveBeenCalledWith(100);
+    expect(s.payments.createVnpay).toHaveBeenCalledWith(s.tx, {
+      orderId: 100,
+      amount: 2000,
+      txnRef: TXN_REF,
+    });
+    expect(s.payments.createCod).not.toHaveBeenCalled();
+    expect(s.calls).toEqual([
+      'cart.lock',
+      'cart.read',
+      'product.lock',
+      'order.create',
+      'product.decrease',
+      'payment.createVnpay',
+      'cart.clear',
+    ]);
+    expect(s.vnpay.buildPaymentUrl).toHaveBeenCalledWith({
+      txnRef: TXN_REF,
+      amount: 2000,
+      orderInfo: 'Thanh toan don hang 100',
+      ip: '203.0.113.5',
+      createdAt: PAYMENT_CREATED_AT,
+    });
+    expect(res.paymentUrl).toBe(PAYMENT_URL);
+  });
+
+  it('VNPAY thiếu hàng: 409, không tạo payments, không dựng URL', async () => {
+    const s = setup();
+    s.products.lockForUpdate.mockResolvedValueOnce([
+      { id: 5, name: 'MacBook', price: 1000, stock: 1, isActive: true },
+    ]);
+    await expect(
+      s.service.create(7, dto({ paymentMethod: 'VNPAY' })),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(s.payments.createVnpay).not.toHaveBeenCalled();
+    expect(s.vnpay.buildPaymentUrl).not.toHaveBeenCalled();
+  });
+
+  it('COD: không có paymentUrl, không đụng tới VNPay', async () => {
+    const s = setup();
+    const res = await s.service.create(7, dto());
+    expect(res.paymentUrl).toBeUndefined();
+    expect(s.payments.createVnpay).not.toHaveBeenCalled();
+    expect(s.vnpay.makeTxnRef).not.toHaveBeenCalled();
+    expect(s.vnpay.buildPaymentUrl).not.toHaveBeenCalled();
   });
 
   it('tổng vượt giới hạn Int: 400, không tạo đơn', async () => {

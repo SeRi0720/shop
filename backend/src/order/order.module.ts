@@ -7,6 +7,7 @@ import { ProductModule } from '../product/product.module';
 import { OrderController } from './order.controller';
 import { OrderService } from './order.service';
 import { AdminOrderController } from './admin-order.controller';
+import { VnpayController } from './vnpay.controller';
 
 @Module({
   imports: [
@@ -16,7 +17,7 @@ import { AdminOrderController } from './admin-order.controller';
     ProductModule,
     PaymentModule,
   ],
-  controllers: [OrderController, AdminOrderController],
+  controllers: [OrderController, AdminOrderController, VnpayController],
   providers: [OrderService],
   exports: [OrderService],
 })

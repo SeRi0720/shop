@@ -2,15 +2,23 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { CartService } from '../cart/cart.service';
 import type { Prisma } from '../generated/prisma/client';
 import { PaymentService } from '../payment/payment.service';
+import { VnpayService } from '../payment/vnpay.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProductService } from '../product/product.service';
 import { CreateOrderDto } from './dto/create-order.dto';
-import type { OrderView, StockShortage, LockedOrder } from './order.types';
+import type {
+  OrderView,
+  StockShortage,
+  LockedOrder,
+  VnpayApplyOutcome,
+  VnpaySyncState,
+} from './order.types';
 import { canTransition, type AdminTargetStatus } from './order-state';
 
 const MAX_INT = 2_147_483_647;
@@ -38,99 +46,129 @@ const orderSelect = {
 
 @Injectable()
 export class OrderService {
+  private readonly logger = new Logger(OrderService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly cart: CartService,
     private readonly products: ProductService,
     private readonly payments: PaymentService,
+    private readonly vnpay: VnpayService,
   ) {}
 
-  async create(userId: number, dto: CreateOrderDto): Promise<OrderView> {
-    if (dto.paymentMethod !== 'COD') {
-      throw new BadRequestException(
-        'Thanh toán VNPay chưa được hỗ trợ, vui lòng chọn COD',
-      );
+  async create(
+    userId: number,
+    dto: CreateOrderDto,
+    ip?: string,
+  ): Promise<OrderView> {
+    const isVnpay = dto.paymentMethod === 'VNPAY';
+    // Kiểm tra TRƯỚC khi tạo gì: thiếu cấu hình thì không có đơn nào bị tạo và trừ kho.
+    if (isVnpay && !this.vnpay.isConfigured()) {
+      throw new BadRequestException('VNPay chưa được cấu hình');
     }
 
-    // QUY TẮC SỐNG CÒN: trong callback chỉ dùng `tx`, không dùng `this.prisma`.
-    // Dùng nhầm this.prisma chạy ngoài transaction mà không báo lỗi.
-    const orderId = await this.prisma.$transaction(async (tx) => {
-      // 1. Khóa giỏ trước, rồi mới đọc giỏ (chặn đặt trùng của cùng một người)
-      await this.cart.lockCart(tx, userId);
-      const items = await this.cart.readItems(tx, userId);
-      if (items.length === 0) {
-        throw new ConflictException('Giỏ hàng trống hoặc đã được đặt');
-      }
+    const { orderId, vnpayPayment } = await this.prisma.$transaction(
+      async (tx) => {
+        // 1. Khóa giỏ trước, rồi mới đọc giỏ (chặn đặt trùng của cùng một người)
+        await this.cart.lockCart(tx, userId);
+        const items = await this.cart.readItems(tx, userId);
+        if (items.length === 0) {
+          throw new ConflictException('Giỏ hàng trống hoặc đã được đặt');
+        }
 
-      // 2. Khóa các dòng sản phẩm theo id tăng dần (chống deadlock)
-      const locked = await this.products.lockForUpdate(
-        tx,
-        items.map((i) => i.productId),
-      );
-      const byId = new Map(locked.map((p) => [p.id, p]));
+        // 2. Khóa các dòng sản phẩm theo id tăng dần (chống deadlock)
+        const locked = await this.products.lockForUpdate(
+          tx,
+          items.map((i) => i.productId),
+        );
+        const byId = new Map(locked.map((p) => [p.id, p]));
 
-      // 3. Kiểm tra tồn kho (kiểm tra có giá trị thật nằm ở đây)
-      const shortages: StockShortage[] = [];
-      for (const { productId, quantity } of items) {
-        const p = byId.get(productId);
-        const available = p && p.isActive ? p.stock : 0;
-        if (quantity > available) {
-          shortages.push({
-            productId,
-            name: p?.name ?? 'Sản phẩm không còn tồn tại',
-            requested: quantity,
-            available,
+        // 3. Kiểm tra tồn kho (kiểm tra có giá trị thật nằm ở đây)
+        const shortages: StockShortage[] = [];
+        for (const { productId, quantity } of items) {
+          const p = byId.get(productId);
+          const available = p && p.isActive ? p.stock : 0;
+          if (quantity > available) {
+            shortages.push({
+              productId,
+              name: p?.name ?? 'Sản phẩm không còn tồn tại',
+              requested: quantity,
+              available,
+            });
+          }
+        }
+        if (shortages.length > 0) {
+          throw new ConflictException({
+            message: 'Một số sản phẩm không đủ hàng',
+            items: shortages,
           });
         }
-      }
-      if (shortages.length > 0) {
-        throw new ConflictException({
-          message: 'Một số sản phẩm không đủ hàng',
-          items: shortages,
+
+        // 4. Tên và giá lấy từ dòng đã khóa, không lấy từ client
+        let totalAmount = 0;
+        const lines = items.map(({ productId, quantity }) => {
+          const p = byId.get(productId)!;
+          totalAmount += p.price * quantity;
+          return {
+            productId,
+            productName: p.name,
+            unitPrice: p.price,
+            quantity,
+          };
         });
-      }
+        if (totalAmount > MAX_INT) {
+          throw new BadRequestException('Tổng giá trị đơn hàng vượt giới hạn');
+        }
 
-      // 4. Tên và giá lấy từ dòng đã khóa, không lấy từ client
-      let totalAmount = 0;
-      const lines = items.map(({ productId, quantity }) => {
-        const p = byId.get(productId)!;
-        totalAmount += p.price * quantity;
-        return {
-          productId,
-          productName: p.name,
-          unitPrice: p.price,
-          quantity,
-        };
-      });
-      if (totalAmount > MAX_INT) {
-        throw new BadRequestException('Tổng giá trị đơn hàng vượt giới hạn');
-      }
-
-      // 5. Tạo đơn, trừ kho, ghi payments, xóa giỏ
-      const order = await tx.order.create({
-        data: {
-          userId,
-          totalAmount,
-          paymentMethod: 'COD',
-          shippingName: dto.shippingName,
-          shippingPhone: dto.shippingPhone,
-          shippingAddress: dto.shippingAddress,
-          note: dto.note || null,
-          items: { create: lines },
-        },
-        select: { id: true },
-      });
-      await this.products.decreaseStock(tx, items);
-      await this.payments.createCod(tx, {
-        orderId: order.id,
-        amount: totalAmount,
-      });
-      await this.cart.clear(tx, userId);
-      return order.id;
-    });
+        // 5. Tạo đơn, trừ kho, ghi payments, xóa giỏ
+        const order = await tx.order.create({
+          data: {
+            userId,
+            totalAmount,
+            paymentMethod: dto.paymentMethod,
+            shippingName: dto.shippingName,
+            shippingPhone: dto.shippingPhone,
+            shippingAddress: dto.shippingAddress,
+            note: dto.note || null,
+            items: { create: lines },
+          },
+          select: { id: true },
+        });
+        await this.products.decreaseStock(tx, items);
+        let vnpayPayment: { txnRef: string; createdAt: Date } | null = null;
+        if (isVnpay) {
+          const txnRef = this.vnpay.makeTxnRef(order.id);
+          const payment = await this.payments.createVnpay(tx, {
+            orderId: order.id,
+            amount: totalAmount,
+            txnRef,
+          });
+          vnpayPayment = { txnRef, createdAt: payment.createdAt };
+        } else {
+          await this.payments.createCod(tx, {
+            orderId: order.id,
+            amount: totalAmount,
+          });
+        }
+        await this.cart.clear(tx, userId);
+        return { orderId: order.id, vnpayPayment };
+      },
+    );
 
     // Transaction đã commit. Tuần 9 publish('order.created') ở ĐÂY (ngoài transaction).
-    return this.findOneForUser(userId, orderId);
+    const view = await this.findOneForUser(userId, orderId);
+    if (!vnpayPayment) return view;
+
+    // URL không lưu DB; vnp_CreateDate lấy từ createdAt của dòng payments để
+    // sau này queryDr dùng lại đúng giá trị (vnp_TransactionDate).
+    const paymentUrl = this.vnpay.buildPaymentUrl({
+      txnRef: vnpayPayment.txnRef,
+      amount: view.totalAmount,
+      orderInfo: `Thanh toan don hang ${orderId}`,
+      ip,
+      createdAt: vnpayPayment.createdAt,
+    });
+    return { ...view, paymentUrl };
   }
 
   /** Chỉ chủ đơn xem được; đơn người khác hoặc không tồn tại đều 404 (không lộ id). */
@@ -197,6 +235,109 @@ export class OrderService {
       }
     });
     return this.loadView({ id: orderId });
+  }
+
+  // ---- VNPay: IPN và xác nhận bằng queryDr dùng CHUNG applyVnpayResult ----
+
+  /**
+   * Áp dụng kết quả VNPay cho một giao dịch. Idempotent.
+   * `payload`: các tham số vnp_* đã kiểm chữ ký (không có vnp_SecureHash), từ IPN
+   * hoặc từ phản hồi queryDr. Thứ tự kiểm tra: không thấy -> sai số tiền -> đã xác nhận -> xử lý.
+   */
+  async applyVnpayResult(
+    txnRef: string,
+    success: boolean,
+    payload: Record<string, string>,
+  ): Promise<VnpayApplyOutcome> {
+    // Đọc không khóa chỉ để biết mã đơn (txnRef không đổi sau khi tạo).
+    const peek = await this.payments.findByTxnRef(txnRef);
+    if (!peek) return 'NOT_FOUND';
+
+    const outcome = await this.prisma.$transaction(
+      async (tx): Promise<VnpayApplyOutcome> => {
+        // Khóa dòng đơn TRƯỚC (cùng thứ tự với hủy đơn), rồi mới đọc/ghi payments.
+        const order = await this.lockOrder(tx, peek.orderId);
+        if (!order) return 'NOT_FOUND';
+        // Quyết định dựa trên lần đọc LẠI sau khi đã khóa.
+        const payment = await this.payments.findByTxnRef(txnRef, tx);
+        if (!payment) return 'NOT_FOUND';
+
+        const reported = payload.vnp_Amount ?? '';
+        if (
+          !/^\d+$/.test(reported) ||
+          Number(reported) !== payment.amount * 100
+        ) {
+          return 'AMOUNT_MISMATCH';
+        }
+        if (payment.status === 'SUCCESS') return 'ALREADY_CONFIRMED';
+
+        const info = {
+          providerTxnNo: payload.vnp_TransactionNo,
+          rawPayload: payload,
+        };
+        if (success) {
+          // Cả khi payments đang FAILED (đơn đã hủy): tiền thật đã thu nên ghi SUCCESS.
+          await this.payments.finishVnpay(tx, payment.id, 'SUCCESS', info);
+          if (canTransition(order.status, 'PAID', order.paymentMethod)) {
+            await tx.order.update({
+              where: { id: order.id },
+              data: { status: 'PAID' },
+            });
+            return 'APPLIED_PAID';
+          }
+          return 'LATE_PAID';
+        }
+
+        if (payment.status !== 'PENDING') return 'ALREADY_CONFIRMED';
+        await this.payments.finishVnpay(tx, payment.id, 'FAILED', info);
+        // cancelLocked hoàn kho; chỉ gọi khi đơn còn PENDING để không hoàn kho hai lần.
+        if (order.status === 'PENDING') await this.cancelLocked(tx, order.id);
+        return 'APPLIED_FAILED';
+      },
+    );
+
+    if (outcome === 'LATE_PAID') {
+      this.logger.warn(
+        `Đã thu tiền VNPay cho đơn #${peek.orderId} nhưng đơn không còn PENDING (txnRef ${txnRef}): cần hoàn tiền thủ công`,
+      );
+    }
+    return outcome;
+  }
+
+  /**
+   * Hỏi VNPay (queryDr) rồi áp dụng kết quả. Gọi mạng NGOÀI transaction để không
+   * giữ khóa dòng đơn trong lúc chờ. Trả trạng thái thanh toán thật sau khi đồng bộ.
+   * Không ném lỗi vì VNPay: lỗi mạng/định dạng chỉ cho kết quả 'ERROR' hoặc 'PENDING'.
+   */
+  async syncVnpayPayment(orderId: number): Promise<VnpaySyncState> {
+    const payment = await this.payments.findVnpayByOrderId(orderId);
+    if (!payment?.txnRef) return 'ERROR';
+    // Đã có kết luận (IPN tới trước, hoặc đơn đã hủy): khỏi hỏi lại VNPay.
+    if (payment.status === 'SUCCESS') return 'PAID';
+    if (payment.status === 'FAILED') return 'FAILED';
+
+    const result = await this.vnpay.queryTransaction({
+      txnRef: payment.txnRef,
+      amount: payment.amount,
+      transactionDate: payment.createdAt,
+    });
+
+    if (result.kind === 'PAID' || result.kind === 'FAILED') {
+      const outcome = await this.applyVnpayResult(
+        payment.txnRef,
+        result.kind === 'PAID',
+        result.payload,
+      );
+      this.logger.log(`queryDr đơn #${orderId}: ${result.kind} -> ${outcome}`);
+    } else if (result.kind === 'ERROR') {
+      this.logger.warn(`queryDr đơn #${orderId} lỗi: ${result.reason}`);
+    }
+
+    // Đọc lại: IPN có thể vừa xử lý xong trong lúc ta chờ VNPay.
+    const latest = await this.payments.findByTxnRef(payment.txnRef);
+    if (latest?.status === 'SUCCESS') return 'PAID';
+    if (latest?.status === 'FAILED') return 'FAILED';
+    return result.kind === 'ERROR' ? 'ERROR' : 'PENDING';
   }
 
   // ---- nội bộ (mọi hàm dưới đây chỉ dùng `tx`) ----
