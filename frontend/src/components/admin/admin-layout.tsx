@@ -24,7 +24,7 @@ const NAV: {
   { to: "/admin", label: "Tổng quan", icon: LayoutDashboard, end: true },
   { to: "/admin/products", label: "Sản phẩm", icon: Package },
   { to: "/admin/catalog", label: "Danh mục & thương hiệu", icon: Tags },
-  { label: "Đơn hàng", icon: ReceiptText, soon: "Tuần 5" },
+  { to: "/admin/orders", label: "Đơn hàng", icon: ReceiptText },
   { label: "Người dùng", icon: Users, soon: "Tuần 7" },
 ]
 

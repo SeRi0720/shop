@@ -17,6 +17,7 @@ import { RegisterPage } from "@/pages/register-page"
 import { CartPage } from "@/pages/cart-page"
 import { CheckoutPage } from "@/pages/checkout-page"
 import { OrderDetailPage } from "@/pages/order-detail-page"
+import { AdminOrdersPage } from "./pages/admin/orders-page"
 
 export const router = createBrowserRouter([
   {
@@ -62,6 +63,7 @@ export const router = createBrowserRouter([
               { path: "products/new", element: <AdminProductNewPage /> },
               { path: "products/:id", element: <AdminProductEditPage /> },
               { path: "catalog", element: <AdminCatalogPage /> },
+              { path: "orders", element: <AdminOrdersPage /> },
             ],
           },
         ],

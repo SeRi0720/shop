@@ -35,7 +35,7 @@ export const invalidateProducts = (qc: QueryClient) =>
   )
 
 // 404 là kết quả hợp lệ (sản phẩm không tồn tại/đang ẩn), không thử lại.
-const retryUnlessNotFound = (failureCount: number, error: unknown) =>
+export const retryUnlessNotFound = (failureCount: number, error: unknown) =>
   !isNotFound(error) && failureCount < 2
 
 // ---- Danh mục & thương hiệu ----

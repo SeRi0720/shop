@@ -19,3 +19,17 @@ export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   SUCCESS: "Đã thanh toán",
   FAILED: "Không thành công",
 }
+
+export const PAYMENT_METHOD_SHORT: Record<PaymentMethod, string> = {
+  COD: "COD",
+  VNPAY: "VNPay",
+}
+
+type BadgeVariant = "default" | "secondary" | "outline" | "destructive"
+export const ORDER_STATUS_VARIANT: Record<OrderStatus, BadgeVariant> = {
+  PENDING: "outline",
+  PAID: "secondary",
+  SHIPPING: "secondary",
+  COMPLETED: "default",
+  CANCELLED: "destructive",
+}

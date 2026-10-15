@@ -3,6 +3,7 @@ export type OrderStatus =
 export type PaymentMethod = "COD" | "VNPAY"
 export type PaymentStatus =
   "PENDING" | "PENDING_ON_DELIVERY" | "SUCCESS" | "FAILED"
+export type AdminTargetStatus = "SHIPPING" | "COMPLETED" | "CANCELLED"
 
 export interface OrderLine {
   productId: number
@@ -24,6 +25,8 @@ export interface Order {
   note: string | null
   createdAt: string
   items: OrderLine[]
+  paymentUrl?: string
+  paymentExpiresAt?: string | null
 }
 
 export interface CreateOrderInput {
@@ -31,7 +34,7 @@ export interface CreateOrderInput {
   shippingPhone: string
   shippingAddress: string
   note?: string
-  paymentMethod: "COD" // tuần 5 mới thêm VNPAY
+  paymentMethod: PaymentMethod
 }
 
 export interface StockShortage {
@@ -39,4 +42,46 @@ export interface StockShortage {
   name: string
   requested: number
   available: number
+}
+
+export interface Paginated<T> {
+  items: T[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+}
+
+export interface OrderListItem {
+  id: number
+  createdAt: string
+  status: OrderStatus
+  paymentMethod: PaymentMethod
+  paymentStatus: PaymentStatus | null
+  totalAmount: number
+  itemCount: number
+  firstItemName: string | null
+}
+
+export interface AdminOrderListItem extends OrderListItem {
+  shippingName: string
+  shippingPhone: string
+  nextStatuses: AdminTargetStatus[]
+}
+
+export interface AdminOrder extends Order {
+  nextStatuses: AdminTargetStatus[]
+}
+
+export interface OrderListParams {
+  page: number
+  limit: number
+}
+
+export interface AdminOrderListParams extends OrderListParams {
+  status?: OrderStatus
+  paymentMethod?: PaymentMethod
+  q?: string
+  from?: string // yyyy-MM-dd, giờ VN
+  to?: string
 }
