@@ -24,10 +24,9 @@ import type {
   LockedProduct,
   StockLine,
 } from './product.types';
+import { escapeLike } from '../common/escape-like';
 
 const MAX_INT = 2_147_483_647;
-
-const escapeLike = (value: string) => value.replace(/[\\%_]/g, '\\$&');
 
 @Injectable()
 export class ProductService {

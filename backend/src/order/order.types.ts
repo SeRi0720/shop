@@ -1,4 +1,8 @@
-import type { OrderStatusValue, PaymentMethodValue } from './order-state';
+import type {
+  OrderStatusValue,
+  PaymentMethodValue,
+  AdminTargetStatus,
+} from './order-state';
 
 export interface LockedOrder {
   id: number;
@@ -28,6 +32,7 @@ export interface OrderView {
   items: OrderLineView[];
   /** Chỉ có khi vừa tạo đơn VNPAY: trình duyệt chuyển hướng tới đây. Không lưu DB. */
   paymentUrl?: string;
+  paymentExpiresAt: Date | null;
 }
 
 export interface StockShortage {
@@ -55,4 +60,33 @@ export interface ExpirySummary {
   paid: number; // VNPay báo đã thanh toán nên đơn sang PAID, không hủy
   cancelled: number;
   skipped: number; // truy vấn lỗi hoặc đơn đổi trạng thái giữa chừng: thử lại lượt sau
+}
+
+export interface Paginated<T> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface OrderListItem {
+  id: number;
+  createdAt: Date;
+  status: string;
+  paymentMethod: string;
+  paymentStatus: string | null;
+  totalAmount: number;
+  itemCount: number;
+  firstItemName: string | null;
+}
+
+export interface AdminOrderListItem extends OrderListItem {
+  shippingName: string;
+  shippingPhone: string;
+  nextStatuses: AdminTargetStatus[];
+}
+
+export interface AdminOrderView extends OrderView {
+  nextStatuses: AdminTargetStatus[];
 }

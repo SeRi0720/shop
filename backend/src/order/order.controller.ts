@@ -8,6 +8,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import {
@@ -18,6 +19,7 @@ import { JwtAuthGuard } from '../common/auth/jwt-auth.guard';
 import { ParseIdPipe } from '../common/pipes/parse-id.pipe';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderService } from './order.service';
+import { OrderListQueryDto } from './dto/order-query.dto';
 
 @ApiTags('orders')
 @ApiBearerAuth()
@@ -46,6 +48,13 @@ export class OrderController {
     @Param('id', ParseIdPipe) id: number,
   ) {
     return this.orderService.checkPayment(user, id);
+  }
+
+  @Get() list(
+    @CurrentUser() user: AuthUser,
+    @Query() query: OrderListQueryDto,
+  ) {
+    return this.orderService.listForUser(user.id, query);
   }
 
   @Get(':id') findOne(

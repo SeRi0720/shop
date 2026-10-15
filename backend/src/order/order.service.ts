@@ -19,20 +19,29 @@ import type {
   VnpayApplyOutcome,
   VnpaySyncState,
   ExpirySummary,
+  Paginated,
+  OrderListItem,
+  AdminOrderListItem,
+  AdminOrderView,
 } from './order.types';
-import { canTransition, type AdminTargetStatus } from './order-state';
+import {
+  canTransition,
+  type AdminTargetStatus,
+  nextAdminStatuses,
+  type OrderStatusValue,
+  type PaymentMethodValue,
+} from './order-state';
+import { escapeLike } from '../common/escape-like';
+import { vnDayEnd, vnDayStart } from '../common/vn-date';
+import { AdminOrderQueryDto, OrderListQueryDto } from './dto/order-query.dto';
 
 const MAX_INT = 2_147_483_647;
 
 // Đơn VNPay chỉ bị tự hủy sau khi URL hết hạn + phần đệm cho IPN/truy vấn đến muộn.
 const EXPIRY_GRACE_MINUTES = 2;
 const EXPIRY_BATCH_SIZE = 20;
-// VNPay từ chối truy vấn lặp trong một khoảng thời gian (mã 94, không ký). Sau lần bị từ chối,
-// không hỏi lại đơn đó trong khoảng này để không tự gia hạn việc bị từ chối. Cửa sổ thật
-// của VNPay chưa được tài liệu nêu rõ: 5 phút là giá trị khởi đầu, chỉnh theo thực nghiệm.
 const QUERY_BACKOFF_MS = 5 * 60_000;
 
-/** "HH:mm" theo giờ Việt Nam, dùng trong thông báo cho người dùng. */
 const vnClock = (d: Date) => {
   const s = formatVnDate(d);
   return `${s.slice(8, 10)}:${s.slice(10, 12)}`;
@@ -57,6 +66,18 @@ const orderSelect = {
     },
     orderBy: { id: 'asc' },
   },
+} satisfies Prisma.OrderSelect;
+
+const listSelect = {
+  id: true,
+  status: true,
+  totalAmount: true,
+  paymentMethod: true,
+  shippingName: true,
+  shippingPhone: true,
+  createdAt: true,
+  _count: { select: { items: true } },
+  items: { select: { productName: true }, orderBy: { id: 'asc' }, take: 1 },
 } satisfies Prisma.OrderSelect;
 
 @Injectable()
@@ -195,6 +216,55 @@ export class OrderService {
     return this.loadView({ id: orderId, userId });
   }
 
+  async listForUser(
+    userId: number,
+    query: OrderListQueryDto,
+  ): Promise<Paginated<OrderListItem>> {
+    const page = await this.queryPage({ userId }, query);
+    return {
+      ...page,
+      items: page.items.map((o) => ({
+        id: o.id,
+        createdAt: o.createdAt,
+        status: o.status,
+        paymentMethod: o.paymentMethod,
+        paymentStatus: o.paymentStatus,
+        totalAmount: o.totalAmount,
+        itemCount: o.itemCount,
+        firstItemName: o.firstItemName,
+      })),
+    };
+  }
+
+  async listForAdmin(
+    query: AdminOrderQueryDto,
+  ): Promise<Paginated<AdminOrderListItem>> {
+    const page = await this.queryPage(this.buildAdminWhere(query), query);
+    return {
+      ...page,
+      items: page.items.map((o) => ({
+        ...o,
+        nextStatuses: this.nextStatuses(
+          o.status as OrderStatusValue,
+          o.paymentMethod as PaymentMethodValue,
+          o.createdAt,
+        ),
+      })),
+    };
+  }
+
+  async findOneForAdmin(orderId: number): Promise<AdminOrderView> {
+    const view = await this.loadView({ id: orderId });
+    return {
+      ...view,
+      nextStatuses: this.nextStatuses(
+        view.status as OrderStatusValue,
+        view.paymentMethod as PaymentMethodValue,
+        view.createdAt,
+      ),
+    };
+  }
+
   private async loadView(where: Prisma.OrderWhereInput): Promise<OrderView> {
     const order = await this.prisma.order.findFirst({
       where,
@@ -206,6 +276,12 @@ export class OrderService {
     return {
       ...order,
       paymentStatus: payment?.status ?? null,
+      paymentExpiresAt:
+        order.paymentMethod === 'VNPAY' && order.status === 'PENDING'
+          ? new Date(
+              order.createdAt.getTime() + this.vnpay.urlTtlMinutes * 60_000,
+            )
+          : null,
       items: order.items.map((i) => ({
         ...i,
         lineTotal: i.unitPrice * i.quantity,
@@ -565,5 +641,97 @@ export class OrderService {
       'PENDING_ON_DELIVERY',
       'PENDING',
     ]);
+  }
+
+  // ---- đọc danh sách (không dùng tx) ----
+
+  /** Đếm + lấy trang dùng chung một where; trạng thái thanh toán lấy bằng MỘT truy vấn cho cả trang. */
+  private async queryPage(
+    where: Prisma.OrderWhereInput,
+    query: OrderListQueryDto,
+  ) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.order.count({ where }),
+      this.prisma.order.findMany({
+        where,
+        // id làm khóa phụ để thứ tự ổn định giữa các trang
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+        select: listSelect,
+      }),
+    ]);
+    const pay = await this.payments.findLatestByOrderIds(rows.map((r) => r.id));
+    return {
+      items: rows.map((r) => ({
+        id: r.id,
+        createdAt: r.createdAt,
+        status: r.status,
+        paymentMethod: r.paymentMethod,
+        paymentStatus: pay.get(r.id)?.status ?? null,
+        totalAmount: r.totalAmount,
+        itemCount: r._count.items,
+        firstItemName: r.items[0]?.productName ?? null,
+        shippingName: r.shippingName,
+        shippingPhone: r.shippingPhone,
+      })),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  private buildAdminWhere(query: AdminOrderQueryDto): Prisma.OrderWhereInput {
+    const from = query.from ? vnDayStart(query.from) : undefined;
+    const to = query.to ? vnDayEnd(query.to) : undefined;
+    if (from === null || to === null) {
+      throw new BadRequestException('Ngày không hợp lệ');
+    }
+    if (from && to && from > to) {
+      throw new BadRequestException('from không được sau to');
+    }
+
+    const q = query.q?.trim();
+    let or: Prisma.OrderWhereInput[] | undefined;
+    if (q) {
+      or = [{ shippingPhone: { contains: escapeLike(q) } }];
+      if (/^\d+$/.test(q)) {
+        // Số quá lớn sẽ làm Prisma ném lỗi tràn Int, nên chỉ thử khớp mã đơn khi vừa kiểu Int
+        if (Number(q) <= MAX_INT) or.push({ id: Number(q) });
+      } else {
+        or.push({
+          shippingName: { contains: escapeLike(q), mode: 'insensitive' },
+        });
+      }
+    }
+
+    return {
+      status: query.status,
+      paymentMethod: query.paymentMethod,
+      createdAt: from || to ? { gte: from, lte: to } : undefined,
+      OR: or,
+    };
+  }
+
+  /**
+   * Trạng thái admin được chọn tiếp theo. Đơn VNPay PENDING còn trong thời hạn thanh toán
+   * thì ẩn CANCELLED (khớp quyết định 15, tránh nút bấm vào là 409).
+   */
+  private nextStatuses(
+    status: OrderStatusValue,
+    method: PaymentMethodValue,
+    createdAt: Date,
+    now: Date = new Date(),
+  ) {
+    const all = nextAdminStatuses(status, method);
+    if (method === 'VNPAY' && status === 'PENDING') {
+      const expiresAt = createdAt.getTime() + this.vnpay.urlTtlMinutes * 60_000;
+      if (now.getTime() < expiresAt)
+        return all.filter((s) => s !== 'CANCELLED');
+    }
+    return all;
   }
 }

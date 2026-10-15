@@ -37,3 +37,11 @@ export function canTransition(
 ): boolean {
   return TRANSITIONS[from][to]?.includes(method) ?? false;
 }
+
+/** Các trạng thái admin được phép chọn tiếp theo, suy ra từ canTransition (nguồn sự thật duy nhất). */
+export function nextAdminStatuses(
+  from: OrderStatusValue,
+  method: PaymentMethodValue,
+): AdminTargetStatus[] {
+  return ADMIN_TARGET_STATUSES.filter((to) => canTransition(from, to, method));
+}
