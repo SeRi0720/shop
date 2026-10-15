@@ -1,4 +1,9 @@
-import type { OrderStatus, PaymentMethod, PaymentStatus } from "./types"
+import type {
+  AdminTargetStatus,
+  OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
+} from "./types"
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   PENDING: "Chờ xử lý",
@@ -17,7 +22,7 @@ export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   PENDING: "Chờ thanh toán",
   PENDING_ON_DELIVERY: "Thanh toán khi nhận hàng",
   SUCCESS: "Đã thanh toán",
-  FAILED: "Không thành công",
+  FAILED: "Đã huỷ",
 }
 
 export const PAYMENT_METHOD_SHORT: Record<PaymentMethod, string> = {
@@ -32,4 +37,10 @@ export const ORDER_STATUS_VARIANT: Record<OrderStatus, BadgeVariant> = {
   SHIPPING: "secondary",
   COMPLETED: "default",
   CANCELLED: "destructive",
+}
+
+export const ADMIN_ACTION_LABEL: Record<AdminTargetStatus, string> = {
+  SHIPPING: "Chuyển sang đang giao",
+  COMPLETED: "Đánh dấu hoàn tất",
+  CANCELLED: "Hủy đơn",
 }

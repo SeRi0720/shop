@@ -1,4 +1,9 @@
-import type { AdminOrderListParams, OrderStatus, PaymentMethod } from "./types"
+import type {
+  AdminOrderListParams,
+  OrderListParams,
+  OrderStatus,
+  PaymentMethod,
+} from "./types"
 
 export const ADMIN_ORDER_PAGE_SIZE = 10
 const STATUSES: OrderStatus[] = [
@@ -10,6 +15,7 @@ const STATUSES: OrderStatus[] = [
 ]
 const METHODS: PaymentMethod[] = ["COD", "VNPAY"]
 const MAX_PAGE = 100000 // khớp OrderListQueryDto
+export const ORDER_PAGE_SIZE = 10
 
 function toInt(
   raw: string | null,
@@ -49,5 +55,12 @@ export function parseAdminOrderParams(
     to,
     page: toInt(sp.get("page"), 1, MAX_PAGE) ?? 1,
     limit: ADMIN_ORDER_PAGE_SIZE,
+  }
+}
+
+export function parseOrderListParams(sp: URLSearchParams): OrderListParams {
+  return {
+    page: toInt(sp.get("page"), 1, MAX_PAGE) ?? 1,
+    limit: ORDER_PAGE_SIZE,
   }
 }

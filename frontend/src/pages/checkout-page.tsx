@@ -1,7 +1,7 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { MapPin, Phone, User } from "lucide-react"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { Link, Navigate, useNavigate } from "react-router"
 import { toast } from "sonner"
 import { FormField } from "@/components/auth/form-field"
@@ -44,9 +44,26 @@ export function CheckoutPage() {
   const createOrder = useCreateOrder()
   const [shortages, setShortages] = useState<StockShortage[]>([])
 
+  // Mã đơn VNPay vừa tạo, đang chuyển sang cổng thanh toán. Khác null thì khóa nút đặt hàng
+  // để không đặt hai lần trong lúc trình duyệt chuyển trang.
+  const [placedId, setPlacedId] = useState<number | null>(null)
+  const redirecting = placedId !== null
+
+  // Bấm Back từ cổng VNPay: trình duyệt có thể khôi phục nguyên trạng trang này (bfcache).
+  // Đưa người dùng sang trang đơn thay vì để nút "Đặt hàng" kẹt ở trạng thái đang chuyển.
+  useEffect(() => {
+    if (placedId === null) return
+    const onShow = (e: PageTransitionEvent) => {
+      if (e.persisted) navigate(`/orders/${placedId}`, { replace: true })
+    }
+    window.addEventListener("pageshow", onShow)
+    return () => window.removeEventListener("pageshow", onShow)
+  }, [placedId, navigate])
+
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<CheckoutValues>({
     resolver: zodResolver(checkoutSchema),
@@ -55,8 +72,10 @@ export function CheckoutPage() {
       shippingPhone: user?.phone ?? "",
       shippingAddress: "",
       note: "",
+      paymentMethod: "COD",
     },
   })
+  const method = useWatch({ control, name: "paymentMethod" })
 
   if (cart.isPending) return <CheckoutSkeleton />
   if (cart.isError) {
@@ -75,7 +94,7 @@ export function CheckoutPage() {
   const { items, totalAmount, hasProblem } = cart.data
 
   // Giỏ rỗng thì về /cart. Không chuyển khi vừa đặt xong: lúc đó giỏ rỗng là bình thường
-  // và việc chuyển sang trang xác nhận do onSubmit đảm nhận.
+  // và việc chuyển sang trang đơn (COD) hoặc sang cổng VNPay do onSubmit đảm nhận.
   if (items.length === 0 && !createOrder.isSuccess) {
     return <Navigate to="/cart" replace />
   }
@@ -88,8 +107,16 @@ export function CheckoutPage() {
         shippingPhone: values.shippingPhone,
         shippingAddress: values.shippingAddress,
         note: values.note || undefined,
-        paymentMethod: "COD",
+        paymentMethod: values.paymentMethod,
       })
+
+      if (order.paymentUrl) {
+        // Đơn VNPay: sang cổng thanh toán (không chuyển qua trang đơn).
+        setPlacedId(order.id)
+        window.location.assign(order.paymentUrl)
+        return
+      }
+
       navigate(`/orders/${order.id}`, {
         replace: true,
         state: { justPlaced: true },
@@ -101,6 +128,7 @@ export function CheckoutPage() {
         setShortages(found)
       } else {
         // Toast sống qua việc chuyển trang (trường hợp giỏ trống: trang sẽ tự về /cart).
+        // Gồm cả lỗi 400 "VNPay chưa được cấu hình".
         toast.error(
           getErrorMessage(error, "Không đặt được hàng, vui lòng thử lại.")
         )
@@ -196,12 +224,12 @@ export function CheckoutPage() {
 
           <fieldset className="space-y-3">
             <legend className="mb-3 label-mono">Phương thức thanh toán</legend>
-            <label className="flex items-start gap-3 border border-foreground bg-card p-4">
+            <label className="flex cursor-pointer items-start gap-3 border border-foreground bg-card p-4 has-checked:bg-muted">
               <input
                 type="radio"
-                name="payment"
-                defaultChecked
+                value="COD"
                 className="mt-1 accent-foreground"
+                {...register("paymentMethod")}
               />
               <span>
                 <span className="block font-bold">
@@ -212,13 +240,21 @@ export function CheckoutPage() {
                 </span>
               </span>
             </label>
-            <div className="flex items-start gap-3 border border-dashed border-foreground p-4 opacity-50">
-              <input type="radio" name="payment" disabled className="mt-1" />
+            <label className="flex cursor-pointer items-start gap-3 border border-foreground bg-card p-4 has-checked:bg-muted">
+              <input
+                type="radio"
+                value="VNPAY"
+                className="mt-1 accent-foreground"
+                {...register("paymentMethod")}
+              />
               <span>
                 <span className="block font-bold">VNPay</span>
-                <span className="label-mono">Tuần 5</span>
+                <span className="text-sm text-muted-foreground">
+                  Thanh toán online qua cổng VNPay. Đơn giữ hàng trong thời hạn
+                  thanh toán, quá hạn sẽ tự hủy.
+                </span>
               </span>
-            </div>
+            </label>
           </fieldset>
         </div>
 
@@ -248,8 +284,11 @@ export function CheckoutPage() {
               {formatPrice(totalAmount)}
             </span>
           </div>
-          <SubmitButton loading={isSubmitting} disabled={hasProblem}>
-            Đặt hàng
+          <SubmitButton
+            loading={isSubmitting || redirecting}
+            disabled={hasProblem}
+          >
+            {method === "VNPAY" ? "Đặt hàng và thanh toán VNPay" : "Đặt hàng"}
           </SubmitButton>
           <Button asChild variant="link" className="w-full">
             <Link to="/cart">Sửa giỏ hàng</Link>

@@ -18,6 +18,7 @@ import { CartPage } from "@/pages/cart-page"
 import { CheckoutPage } from "@/pages/checkout-page"
 import { OrderDetailPage } from "@/pages/order-detail-page"
 import { AdminOrdersPage } from "./pages/admin/orders-page"
+import { OrdersPage } from "./pages/orders-page"
 
 export const router = createBrowserRouter([
   {
@@ -38,6 +39,8 @@ export const router = createBrowserRouter([
             children: [
               { path: "/cart", element: <CartPage /> },
               { path: "/checkout", element: <CheckoutPage /> },
+              { path: "/orders/:id", element: <OrderDetailPage /> },
+              { path: "/orders", element: <OrdersPage /> },
               { path: "/orders/:id", element: <OrderDetailPage /> },
             ],
           },
@@ -64,6 +67,7 @@ export const router = createBrowserRouter([
               { path: "products/:id", element: <AdminProductEditPage /> },
               { path: "catalog", element: <AdminCatalogPage /> },
               { path: "orders", element: <AdminOrdersPage /> },
+              { path: "orders/:id", element: <OrderDetailPage /> },
             ],
           },
         ],

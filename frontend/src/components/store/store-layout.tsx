@@ -5,7 +5,7 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/features/auth/auth-context"
 import { cn } from "@/lib/utils"
-import { ShoppingCart } from "lucide-react"
+import { ShoppingCart, ReceiptText } from "lucide-react"
 import { useCart } from "@/features/cart/hooks"
 
 export function StoreLayout() {
@@ -70,6 +70,11 @@ export function StoreLayout() {
                         {cartCount > 99 ? "99+" : cartCount}
                       </span>
                     )}
+                  </Link>
+                </Button>
+                <Button asChild variant="ghost" size="icon-sm">
+                  <Link to="/orders" aria-label="Đơn hàng của tôi">
+                    <ReceiptText />
                   </Link>
                 </Button>
                 <Button

@@ -13,3 +13,10 @@ const dateTime = new Intl.DateTimeFormat("vi-VN", {
 })
 
 export const formatDateTime = (iso: string) => dateTime.format(new Date(iso))
+
+const time = new Intl.DateTimeFormat("vi-VN", {
+  timeStyle: "short",
+  timeZone: "Asia/Ho_Chi_Minh",
+})
+
+export const formatTime = (iso: string) => time.format(new Date(iso))

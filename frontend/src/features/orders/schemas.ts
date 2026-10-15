@@ -15,6 +15,7 @@ export const checkoutSchema = z.object({
     .trim()
     .min(5, "Địa chỉ tối thiểu 5 ký tự")
     .max(255, "Địa chỉ tối đa 255 ký tự"),
+  paymentMethod: z.enum(["COD", "VNPAY"]),
   note: z.string().trim().max(500, "Ghi chú tối đa 500 ký tự"),
 })
 export type CheckoutValues = z.infer<typeof checkoutSchema>

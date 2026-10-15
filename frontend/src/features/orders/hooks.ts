@@ -23,12 +23,15 @@ import type {
   AdminTargetStatus,
   OrderListParams,
 } from "./types"
+import { useState } from "react"
 
 // Khóa của người dùng có userId để đổi tài khoản không lẫn cache; khóa admin không cần.
 export const orderKey = (userId: number | undefined, id: number | null) =>
   ["order", userId, id] as const
 
 const ORDER_KEYS = ["order", "orders", "admin-order", "admin-orders"]
+const POLL_MS = 3000
+const POLL_WINDOW_MS = 90_000
 
 /** Mọi thao tác đổi đơn: làm mất hiệu lực cache đơn và cả sản phẩm (kho có thể đổi). */
 export const invalidateOrders = (qc: QueryClient) =>
@@ -44,11 +47,19 @@ const retryUnlessNotFound = (failureCount: number, error: unknown) =>
 // ---- Người dùng ----
 export function useOrder(id: number | null) {
   const { user } = useAuth()
+  const [openedAt] = useState(() => Date.now())
   return useQuery({
     queryKey: orderKey(user?.id, id),
     queryFn: () => fetchOrder(id!),
     enabled: id !== null,
     retry: retryUnlessNotFound,
+    // Đơn VNPay đang chờ: đọc lại DB mỗi 3 giây, tối đa 90 giây từ lúc mở trang
+    // (IPN thật có thể tới trong lúc này). Không gọi VNPay ở đây.
+    refetchInterval: (query) => {
+      const o = query.state.data
+      const waiting = o?.paymentMethod === "VNPAY" && o.status === "PENDING"
+      return waiting && Date.now() - openedAt < POLL_WINDOW_MS ? POLL_MS : false
+    },
   })
 }
 
@@ -120,6 +131,6 @@ export function useChangeOrderStatus() {
   return useMutation({
     mutationFn: ({ id, status }: { id: number; status: AdminTargetStatus }) =>
       changeOrderStatus(id, status),
-    onSuccess: () => invalidateOrders(qc),
+    onSettled: () => invalidateOrders(qc),
   })
 }

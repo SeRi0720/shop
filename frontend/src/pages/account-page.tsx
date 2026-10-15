@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button"
 import { LogoutButton } from "@/components/auth/logout-button"
 import { useAuth } from "@/features/auth/auth-context"
 
-/** Trang tạm dành cho người dùng đã đăng nhập; dùng để kiểm thử ProtectedRoute. Các tuần sau bổ sung lịch sử đơn hàng. */
 export function AccountPage() {
   const { user } = useAuth()
   if (!user) return null // ProtectedRoute đã đảm bảo có user
@@ -32,6 +31,9 @@ export function AccountPage() {
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline" size="sm">
             <Link to="/">Trang chủ</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/orders">Đơn hàng của tôi</Link>
           </Button>
           {user.role === "ADMIN" && (
             <Button asChild variant="outline" size="sm">

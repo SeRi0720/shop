@@ -1,5 +1,5 @@
 import { TriangleAlert } from "lucide-react"
-import { useSearchParams } from "react-router"
+import { Link, useSearchParams } from "react-router"
 import { Notice } from "@/components/auth/notice"
 import { SimplePagination } from "@/components/simple-pagination"
 import { Badge } from "@/components/ui/badge"
@@ -127,7 +127,13 @@ export function AdminOrdersPage() {
                   return (
                     <TableRow key={o.id}>
                       <TableCell className="font-bold tabular-nums">
-                        #{o.id}
+                        <Link
+                          to={`/admin/orders/${o.id}`}
+                          state={{ search: sp.toString() }}
+                          className="underline-offset-4 hover:underline"
+                        >
+                          #{o.id}
+                        </Link>
                       </TableCell>
                       <TableCell className="whitespace-nowrap tabular-nums">
                         {formatDateTime(o.createdAt)}

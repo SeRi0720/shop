@@ -32,7 +32,7 @@ export interface OrderView {
   items: OrderLineView[];
   /** Chỉ có khi vừa tạo đơn VNPAY: trình duyệt chuyển hướng tới đây. Không lưu DB. */
   paymentUrl?: string;
-  paymentExpiresAt: Date | null;
+  paymentExpiresAt?: Date | null;
 }
 
 export interface StockShortage {
