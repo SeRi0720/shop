@@ -114,7 +114,7 @@ describe('applyVnpayResult (dùng chung cho IPN và queryDr)', () => {
     const t = setup();
     t.payment('PENDING');
     t.lock('PENDING');
-    const { vnp_Amount, ...rest } = PAYLOAD;
+    const { vnp_Amount: _vnp_Amount, ...rest } = PAYLOAD;
     expect(await t.service.applyVnpayResult('T1', true, rest)).toBe(
       'AMOUNT_MISMATCH',
     );
