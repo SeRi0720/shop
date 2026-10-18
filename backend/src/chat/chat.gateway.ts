@@ -1,19 +1,27 @@
 import { Logger } from '@nestjs/common';
 import {
+  ConnectedSocket,
+  MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
   OnGatewayInit,
   SubscribeMessage,
   WebSocketGateway,
+  WebSocketServer,
 } from '@nestjs/websockets';
 import type { Server, Socket } from 'socket.io';
 import { ChatAuthService } from './chat-auth.service';
+import { ChatError } from './chat-error';
 import {
   CHAT_PATH,
   MAX_HTTP_BUFFER_SIZE,
   ROOM_ADMINS,
   customerRoom,
 } from './chat.constants';
+import { ChatService } from './chat.service';
+import type { SendAck } from './chat.types';
+import { MessageRateLimiter } from './message-rate-limiter';
+import { parseSendPayload } from './parse-send-payload';
 
 export interface SocketUser {
   id: number;
@@ -30,7 +38,13 @@ export class ChatGateway
 {
   private readonly logger = new Logger(ChatGateway.name);
 
-  constructor(private readonly auth: ChatAuthService) {}
+  @WebSocketServer() server!: Server;
+
+  constructor(
+    private readonly auth: ChatAuthService,
+    private readonly chat: ChatService,
+    private readonly limiter: MessageRateLimiter,
+  ) {}
 
   afterInit(server: Server) {
     // Chạy trước khi kết nối được chấp nhận.
@@ -71,5 +85,56 @@ export class ChatGateway
   @SubscribeMessage('ping')
   ping() {
     return { ok: true };
+  }
+
+  @SubscribeMessage('message:send')
+  async handleSend(
+    @ConnectedSocket() socket: Socket,
+    @MessageBody() raw: unknown,
+  ): Promise<SendAck> {
+    const user = socket.data.user as SocketUser;
+    try {
+      // 1) Token hết hạn: từ chối trước khi lưu (client làm mới rồi gửi lại an toàn)
+      const exp = socket.data.exp as unknown;
+      if (typeof exp !== 'number' || Date.now() / 1000 >= exp) {
+        throw new ChatError('TOKEN_EXPIRED');
+      }
+      // 2) Tần suất (sau bước 1 để lần gửi lại sau khi làm mới không bị tính hai lần)
+      if (!this.limiter.tryConsume(user.id))
+        throw new ChatError('RATE_LIMITED');
+      // 3) Kiểm payload rồi lưu
+      const payload = parseSendPayload(raw);
+      const message = await this.chat.sendMessage({
+        senderId: user.id,
+        role: user.role,
+        ...payload,
+      });
+      // 4) Chỉ phát SAU khi đã lưu xong; phát lỗi cũng không làm ack thất bại
+      try {
+        this.server
+          .to(customerRoom(message.customerId))
+          .to(ROOM_ADMINS)
+          .emit('message:new', message);
+      } catch (error) {
+        this.logger.error(
+          `Phát message:new lỗi (tin ${message.id} đã lưu): ${String(error)}`,
+        );
+      }
+      return { ok: true, message };
+    } catch (error) {
+      return this.failure(error, user.id);
+    }
+  }
+
+  private failure(error: unknown, userId: number): SendAck {
+    if (error instanceof ChatError) {
+      return { ok: false, code: error.code, message: error.message };
+    }
+    // Không lộ chi tiết cho client; log đầy đủ ở server
+    this.logger.error(
+      `message:send lỗi user=${userId}: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`,
+    );
+    const internal = new ChatError('INTERNAL');
+    return { ok: false, code: internal.code, message: internal.message };
   }
 }
