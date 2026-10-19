@@ -32,6 +32,7 @@ export function useChatMessages(customerId: number | null) {
     getNextPageParam: (lastPage) =>
       lastPage.hasMore ? lastPage.items[0]?.id : undefined,
     enabled: !!user && customerId !== null,
+    refetchOnWindowFocus: false,
     retry: (failureCount, error) => !isNotFound(error) && failureCount < 2,
   })
 }

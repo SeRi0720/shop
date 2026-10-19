@@ -20,6 +20,7 @@ import { OrderDetailPage } from "@/pages/order-detail-page"
 import { AdminOrdersPage } from "./pages/admin/orders-page"
 import { OrdersPage } from "./pages/orders-page"
 import { AdminOrderDetailPage } from "./pages/admin/order-detail-page"
+import { ChatPage } from "./pages/chat-page"
 
 export const router = createBrowserRouter([
   {
@@ -42,6 +43,7 @@ export const router = createBrowserRouter([
               { path: "/checkout", element: <CheckoutPage /> },
               { path: "/orders/:id", element: <OrderDetailPage /> },
               { path: "/orders", element: <OrdersPage /> },
+              { path: "/chat", element: <ChatPage /> },
             ],
           },
         ],

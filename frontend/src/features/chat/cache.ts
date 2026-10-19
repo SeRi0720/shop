@@ -16,7 +16,7 @@ export const chatInboxKey = (
 
 /** Ghép các trang thành một danh sách từ cũ đến mới. */
 export const flattenMessages = (
-  data: MessagesData | undefined
+  data: { pages: MessagePage[] } | undefined
 ): ChatMessage[] =>
   data ? [...data.pages].reverse().flatMap((p) => p.items) : []
 
@@ -54,13 +54,5 @@ export function applyIncomingMessage(
  * giữa trang 0 và trang 1 bị hụt và biến mất khỏi danh sách.
  */
 export function resyncChat(qc: QueryClient, viewerId: number) {
-  qc.setQueriesData<MessagesData>(
-    { queryKey: ["chat", viewerId, "messages"] },
-    (data) =>
-      data && {
-        pages: data.pages.slice(0, 1),
-        pageParams: data.pageParams.slice(0, 1),
-      }
-  )
   void qc.invalidateQueries({ queryKey: ["chat", viewerId] })
 }
