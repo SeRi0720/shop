@@ -21,6 +21,7 @@ import { AdminOrdersPage } from "./pages/admin/orders-page"
 import { OrdersPage } from "./pages/orders-page"
 import { AdminOrderDetailPage } from "./pages/admin/order-detail-page"
 import { ChatPage } from "./pages/chat-page"
+import { AdminChatPage } from "./pages/admin/chat-page"
 
 export const router = createBrowserRouter([
   {
@@ -70,6 +71,7 @@ export const router = createBrowserRouter([
               { path: "catalog", element: <AdminCatalogPage /> },
               { path: "orders", element: <AdminOrdersPage /> },
               { path: "orders/:id", element: <AdminOrderDetailPage /> },
+              { path: "chat/:customerId?", element: <AdminChatPage /> },
             ],
           },
         ],

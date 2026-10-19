@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet } from "react-router"
 import {
   LayoutDashboard,
+  MessageSquare,
   Package,
   ReceiptText,
   Tags,
@@ -25,6 +26,7 @@ const NAV: {
   { to: "/admin/products", label: "Sản phẩm", icon: Package },
   { to: "/admin/catalog", label: "Danh mục & thương hiệu", icon: Tags },
   { to: "/admin/orders", label: "Đơn hàng", icon: ReceiptText },
+  { to: "/admin/chat", label: "Tin nhắn", icon: MessageSquare },
   { label: "Người dùng", icon: Users, soon: "Tuần 7" },
 ]
 

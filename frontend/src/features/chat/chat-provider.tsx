@@ -18,6 +18,7 @@ import {
 import { applyIncomingMessage, resyncChat } from "./cache"
 import { ChatContext } from "./chat-context"
 import type { ChatMessage } from "./types"
+import { markUnread, resetUnread } from "./unread"
 
 const RETRY_MS = 3000
 
@@ -25,6 +26,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const { status, user } = useAuth()
   const qc = useQueryClient()
   const viewerId = user?.id
+  const isAdmin = user?.role === "ADMIN"
   const connected = useSyncExternalStore(subscribeConnection, isConnected)
   // Đã thử làm mới token cho lần bị từ chối hiện tại chưa (tránh vòng lặp vô hạn).
   const triedRefresh = useRef(false)
@@ -38,10 +40,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       triedRefresh.current = false
       resyncChat(qc, viewerId)
     }
+
     const onMessage = (message: ChatMessage) => {
-      console.log("[chat] message:new", message) // TẠM: xóa sau khi qua mốc ngày 4
       applyIncomingMessage(qc, viewerId, message)
+      if (isAdmin && !message.fromAdmin) markUnread(message.customerId)
     }
+
     const onConnectError = (error: Error) => {
       // active = true: Socket.IO tự nối lại (mất mạng, server tắt) -> không làm gì.
       if (socket.active) return
@@ -66,8 +70,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       socket.off("message:new", onMessage)
       socket.off("connect_error", onConnectError)
       window.clearTimeout(retryTimer)
+      resetUnread()
     }
-  }, [qc, viewerId])
+  }, [qc, viewerId, isAdmin])
 
   // Kết nối theo trạng thái đăng nhập. Không làm gì khi đang "initializing".
   useEffect(() => {
