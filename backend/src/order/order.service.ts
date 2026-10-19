@@ -291,7 +291,7 @@ export class OrderService {
 
   /**
    * Chủ đơn hủy đơn. Chỉ hủy được khi PENDING. Đơn VNPAY PENDING chỉ hủy được khi URL
-   * đã hết hạn, và phải hỏi VNPay trước (quyết định 15).
+   * đã hết hạn, và phải hỏi VNPay trước.
    */
   async cancel(userId: number, orderId: number): Promise<OrderView> {
     // Đọc không khóa chỉ để biết có phải đơn VNPay đang chờ không: bước đó cần gọi mạng
@@ -327,7 +327,7 @@ export class OrderService {
     to: AdminTargetStatus,
   ): Promise<OrderView> {
     if (to === 'CANCELLED') {
-      // Cùng điều kiện với chủ đơn hủy (quyết định 15). Không thấy đơn thì để transaction báo 404.
+      // Cùng điều kiện với chủ đơn hủy. Không thấy đơn thì để transaction báo 404.
       const peek = await this.prisma.order.findUnique({
         where: { id: orderId },
         select: { status: true, paymentMethod: true, createdAt: true },
@@ -356,7 +356,7 @@ export class OrderService {
       }
       await tx.order.update({ where: { id: order.id }, data: { status: to } });
       if (to === 'COMPLETED' && order.paymentMethod === 'COD') {
-        // Đã giao và thu tiền: payments của đơn COD thành SUCCESS (quyết định 14)
+        // Đã giao và thu tiền: payments của đơn COD thành SUCCESS
         await this.payments.setStatus(tx, order.id, 'SUCCESS', [
           'PENDING_ON_DELIVERY',
         ]);
@@ -478,7 +478,7 @@ export class OrderService {
   }
 
   /**
-   * Kiểm tra thanh toán thủ công (quyết định 24): chủ đơn hoặc admin. Chỉ đơn VNPAY đang
+   * Kiểm tra thanh toán thủ công: chủ đơn hoặc admin. Chỉ đơn VNPAY đang
    * PENDING. Đơn của người khác trả 404 (không lộ id).
    */
   async checkPayment(
@@ -504,7 +504,7 @@ export class OrderService {
   }
 
   /**
-   * Tự hủy đơn VNPay quá hạn (quyết định 14). Từng đơn: hỏi VNPay trước (ngoài transaction);
+   * Tự hủy đơn VNPay quá hạn. Từng đơn: hỏi VNPay trước (ngoài transaction);
    * đã thanh toán thì áp dụng và KHÔNG hủy; chỉ hủy khi VNPay xác nhận chưa có thanh toán
    * hoặc báo thất bại. Truy vấn lỗi thì bỏ qua, thử lại ở lượt sau. Nhận `now` để test được.
    */
@@ -556,7 +556,7 @@ export class OrderService {
   }
 
   /**
-   * Quyết định 15, chạy NGOÀI transaction. Ném 409 nếu chưa được hủy;
+   * chạy NGOÀI transaction. Ném 409 nếu chưa được hủy;
    * trả 'DONE' nếu trong lúc kiểm tra đơn đã được hủy (không cần hủy nữa);
    * trả 'PROCEED' nếu được phép đi tiếp vào bước hủy dưới khóa.
    */
@@ -718,7 +718,7 @@ export class OrderService {
 
   /**
    * Trạng thái admin được chọn tiếp theo. Đơn VNPay PENDING còn trong thời hạn thanh toán
-   * thì ẩn CANCELLED (khớp quyết định 15, tránh nút bấm vào là 409).
+   * thì ẩn CANCELLED (tránh nút bấm vào là 409).
    */
   private nextStatuses(
     status: OrderStatusValue,

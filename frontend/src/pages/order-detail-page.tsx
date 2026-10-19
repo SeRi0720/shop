@@ -156,7 +156,7 @@ export function OrderDetailPage() {
   const expiresAt = o.paymentExpiresAt
     ? new Date(o.paymentExpiresAt).getTime()
     : null
-  // Quyết định 15: đơn VNPay chỉ hủy được sau khi URL hết hạn; COD PENDING hủy ngay.
+  //đơn VNPay chỉ hủy được sau khi URL hết hạn; COD PENDING hủy ngay.
   const canCancel =
     o.status === "PENDING" &&
     (!vnpay || (expiresAt !== null && now >= expiresAt))

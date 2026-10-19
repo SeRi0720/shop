@@ -78,7 +78,7 @@ function setup() {
   };
 }
 
-describe('cancelExpiredVnpayOrders (quyết định 14)', () => {
+describe('cancelExpiredVnpayOrders', () => {
   it('chưa cấu hình VNPay: không làm gì', async () => {
     const t = setup();
     t.vnpay.isConfigured.mockReturnValue(false);
@@ -210,7 +210,7 @@ describe('cancelExpiredVnpayOrders (quyết định 14)', () => {
   });
 });
 
-describe('hủy thủ công đơn VNPay (quyết định 15)', () => {
+describe('hủy thủ công đơn VNPay', () => {
   const ago = (m: number) => new Date(Date.now() - m * MIN);
   const peek = (paymentMethod: string, createdAt: Date) => ({
     status: 'PENDING',
@@ -314,7 +314,7 @@ describe('hủy thủ công đơn VNPay (quyết định 15)', () => {
   });
 });
 
-describe('checkPayment (quyết định 24)', () => {
+describe('checkPayment', () => {
   it('người dùng: lọc theo userId; admin: không lọc theo userId', async () => {
     const t = setup();
     jest.spyOn(t.service, 'syncVnpayPayment').mockResolvedValue('PENDING');

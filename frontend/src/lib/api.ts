@@ -5,10 +5,14 @@ export const setAccessToken = (token: string | null) => {
   accessToken = token
 }
 
+export const getAccessToken = () => accessToken
+
 let onSessionExpired: (() => void) | null = null
 export const setSessionExpiredHandler = (fn: (() => void) | null) => {
   onSessionExpired = fn
 }
+
+export const notifySessionExpired = () => onSessionExpired?.()
 
 export const api = axios.create({ baseURL: "/api", withCredentials: true })
 

@@ -152,7 +152,7 @@ export class ChatService {
     try {
       return await this.prisma.$transaction(async (tx) => {
         const now = new Date();
-        // USER: tạo hội thoại nếu chưa có (upsert gốc, quyết định 9).
+        // USER: tạo hội thoại nếu chưa có (upsert gốc).
         // ADMIN: chỉ cập nhật; chưa có thì P2025, không bao giờ tạo hội thoại.
         const conversation = isAdmin
           ? await tx.conversation.update({
