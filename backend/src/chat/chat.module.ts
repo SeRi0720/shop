@@ -6,9 +6,18 @@ import { ChatAuthService } from './chat-auth.service';
 import { ChatGateway } from './chat.gateway';
 import { ChatService } from './chat.service';
 import { MessageRateLimiter } from './message-rate-limiter';
+import { PassportModule } from '@nestjs/passport';
+import { AdminChatController } from './admin-chat.controller';
+import { ChatController } from './chat.controller';
 
 @Module({
-  imports: [PrismaModule, UserModule, JwtModule.register({})],
+  imports: [
+    PrismaModule,
+    UserModule,
+    PassportModule.register({}),
+    JwtModule.register({}),
+  ],
+  controllers: [ChatController, AdminChatController],
   providers: [
     ChatGateway,
     ChatAuthService,

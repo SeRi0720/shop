@@ -13,3 +13,24 @@ export interface ChatMessage {
 export type SendAck =
   | { ok: true; message: ChatMessage }
   | { ok: false; code: ChatErrorCode; message: string };
+
+export interface MessagePage {
+  items: ChatMessage[]; // từ cũ đến mới
+  hasMore: boolean;
+}
+
+export interface InboxItem {
+  customerId: number;
+  fullName: string;
+  email: string;
+  lastMessage: { content: string; fromAdmin: boolean; createdAt: Date };
+  updatedAt: Date;
+}
+
+export interface InboxPage {
+  items: InboxItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}

@@ -21,4 +21,19 @@ export class UserService {
       data: { ...data, email: data.email.trim().toLowerCase() },
     });
   }
+
+  async findSummariesByIds(ids: number[]): Promise<Map<number, UserSummary>> {
+    if (ids.length === 0) return new Map();
+    const rows = await this.prisma.user.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, fullName: true, email: true },
+    });
+    return new Map(rows.map((r) => [r.id, r]));
+  }
+}
+
+export interface UserSummary {
+  id: number;
+  fullName: string;
+  email: string;
 }
