@@ -20,7 +20,7 @@ const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
 const QUERY_TIMEOUT_MS = 5000;
 const VERSION = '2.1.0';
 
-/** yyyyMMddHHmmss theo giờ Việt Nam (GMT+7), không phụ thuộc múi giờ máy. */
+/** yyyyMMddHHmmss theo UTC+7 (GMT+7), không phụ thuộc múi giờ máy. */
 export function formatVnDate(date: Date): string {
   const t = new Date(date.getTime() + VN_OFFSET_MS);
   const p = (n: number) => String(n).padStart(2, '0');
