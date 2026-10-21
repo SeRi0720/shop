@@ -27,7 +27,7 @@ const NAV: {
   { to: "/admin/catalog", label: "Danh mục & thương hiệu", icon: Tags },
   { to: "/admin/orders", label: "Đơn hàng", icon: ReceiptText },
   { to: "/admin/chat", label: "Tin nhắn", icon: MessageSquare },
-  { label: "Người dùng", icon: Users, soon: "Tuần 7" },
+  { to: "/admin/users", label: "Người dùng", icon: Users },
 ]
 
 const itemBase =
