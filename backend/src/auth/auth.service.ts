@@ -42,7 +42,7 @@ export class AuthService {
       throw new UnauthorizedException('Email hoặc mật khẩu không đúng');
     }
     if (!user.isActive) {
-      throw new UnauthorizedException('Email hoặc mật khẩu không đúng');
+      throw new UnauthorizedException('Tài khoản đã bị khóa');
     }
     return user;
   }

@@ -6,6 +6,7 @@ export type ChatErrorCode =
   | "RATE_LIMITED"
   | "TOKEN_EXPIRED"
   | "INTERNAL"
+  | "ACCOUNT_DISABLED"
 
 // Đối chiếu với backend/src/chat/chat.types.ts (createdAt qua JSON là chuỗi ISO).
 export interface ChatMessage {

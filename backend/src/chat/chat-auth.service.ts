@@ -44,4 +44,10 @@ export class ChatAuthService {
     // Vai trò lấy từ DB, không tin vai trò trong token.
     return { id: user.id, role: user.role, exp: payload.exp };
   }
+
+  /** Socket đã kết nối không đi qua JwtStrategy nên kiểm lại ở mỗi lần gửi. Lỗi DB thì ném tiếp. */
+  async isActive(userId: number): Promise<boolean> {
+    const state = await this.users.findAuthState(userId);
+    return !!state && state.isActive;
+  }
 }

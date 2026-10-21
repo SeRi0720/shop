@@ -102,6 +102,9 @@ export class ChatGateway
       // 2) Tần suất (sau bước 1 để lần gửi lại sau khi làm mới không bị tính hai lần)
       if (!this.limiter.tryConsume(user.id))
         throw new ChatError('RATE_LIMITED');
+      if (!(await this.auth.isActive(user.id))) {
+        throw new ChatError('ACCOUNT_DISABLED');
+      }
       // 3) Kiểm payload rồi lưu
       const payload = parseSendPayload(raw);
       const message = await this.chat.sendMessage({

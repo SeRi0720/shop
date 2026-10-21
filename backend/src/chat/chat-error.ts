@@ -5,7 +5,8 @@ export type ChatErrorCode =
   | 'CUSTOMER_NOT_FOUND'
   | 'RATE_LIMITED'
   | 'TOKEN_EXPIRED'
-  | 'INTERNAL';
+  | 'INTERNAL'
+  | 'ACCOUNT_DISABLED';
 
 export const CHAT_ERROR_MESSAGES: Record<ChatErrorCode, string> = {
   INVALID_PAYLOAD: 'Dữ liệu tin nhắn không hợp lệ',
@@ -15,6 +16,7 @@ export const CHAT_ERROR_MESSAGES: Record<ChatErrorCode, string> = {
   RATE_LIMITED: 'Bạn gửi quá nhanh, vui lòng chờ vài giây',
   TOKEN_EXPIRED: 'Phiên đăng nhập đã hết hạn, đang làm mới',
   INTERNAL: 'Có lỗi hệ thống, vui lòng thử lại',
+  ACCOUNT_DISABLED: 'Tài khoản đã bị khóa',
 };
 
 export class ChatError extends Error {

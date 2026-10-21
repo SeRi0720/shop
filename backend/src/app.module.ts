@@ -11,6 +11,7 @@ import { PaymentModule } from './payment/payment.module';
 import { OrderModule } from './order/order.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ChatModule } from './chat/chat.module';
+import { StatsModule } from './stats/stats.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { ChatModule } from './chat/chat.module';
     PaymentModule,
     OrderModule,
     ChatModule,
+    StatsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

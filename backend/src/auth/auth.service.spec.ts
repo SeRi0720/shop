@@ -246,3 +246,43 @@ describe('AuthService', () => {
     });
   });
 });
+
+describe('AuthService.validateUser', () => {
+  const findByEmail = jest.fn();
+  const verify = jest.mocked(verifyPassword);
+  const service = new AuthService(
+    { findByEmail } as unknown as UserService,
+    {} as JwtService,
+    {} as RefreshTokenService,
+  );
+  beforeEach(() => {
+    findByEmail.mockReset();
+    verify.mockReset();
+  });
+
+  const msg = (p: Promise<unknown>) =>
+    p.catch((e: UnauthorizedException) => e.message);
+
+  it('email không tồn tại: thông báo chung', async () => {
+    findByEmail.mockResolvedValue(null);
+    expect(await msg(service.validateUser('a@x.test', 'pw'))).toBe(
+      'Email hoặc mật khẩu không đúng',
+    );
+  });
+
+  it('sai mật khẩu (kể cả tài khoản bị khóa): thông báo chung', async () => {
+    findByEmail.mockResolvedValue({ passwordHash: 'h', isActive: false });
+    verify.mockResolvedValue(false);
+    expect(await msg(service.validateUser('a@x.test', 'sai'))).toBe(
+      'Email hoặc mật khẩu không đúng',
+    );
+  });
+
+  it('đúng mật khẩu nhưng bị khóa: thông báo bị khóa', async () => {
+    findByEmail.mockResolvedValue({ passwordHash: 'h', isActive: false });
+    verify.mockResolvedValue(true);
+    expect(await msg(service.validateUser('a@x.test', 'pw'))).toBe(
+      'Tài khoản đã bị khóa',
+    );
+  });
+});
