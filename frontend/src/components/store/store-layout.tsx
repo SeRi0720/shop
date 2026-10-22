@@ -1,11 +1,12 @@
 import { Link, NavLink, Outlet } from "react-router"
 import { APP_NAME } from "@/components/auth/auth-shell"
 import { LogoutButton } from "@/components/auth/logout-button"
+import { HeaderNavLink } from "@/components/store/header-nav-link"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/features/auth/auth-context"
 import { cn } from "@/lib/utils"
-import { ShoppingCart, ReceiptText, MessageSquare } from "lucide-react"
+import { MessageSquare, Package, ShoppingCart } from "lucide-react"
 import { useCart } from "@/features/cart/hooks"
 
 export function StoreLayout() {
@@ -47,43 +48,25 @@ export function StoreLayout() {
                     <Link to="/admin">Quản trị</Link>
                   </Button>
                 )}
-                <Button
-                  asChild
-                  variant="ghost"
-                  size="icon-sm"
-                  className="relative"
-                >
-                  <Link
-                    to="/cart"
-                    aria-label={
-                      cartCount > 0
-                        ? `Giỏ hàng, ${cartCount} sản phẩm`
-                        : "Giỏ hàng"
-                    }
-                  >
-                    <ShoppingCart />
-                    {cartCount > 0 && (
-                      <span
-                        aria-hidden
-                        className="pointer-events-none absolute -top-1.5 -right-1.5 grid h-4 min-w-4 place-items-center bg-foreground px-1 label-mono text-[10px] leading-none text-background"
-                      >
-                        {cartCount > 99 ? "99+" : cartCount}
-                      </span>
-                    )}
-                  </Link>
-                </Button>
+                <HeaderNavLink
+                  to="/cart"
+                  label="Giỏ hàng"
+                  icon={ShoppingCart}
+                  badge={cartCount}
+                  ariaLabel={
+                    cartCount > 0
+                      ? `Giỏ hàng, ${cartCount} sản phẩm`
+                      : undefined
+                  }
+                />
                 {user?.role === "USER" && (
-                  <Button asChild variant="ghost" size="icon-sm">
-                    <Link to="/chat" aria-label="Tin nhắn hỗ trợ">
-                      <MessageSquare />
-                    </Link>
-                  </Button>
+                  <HeaderNavLink
+                    to="/chat"
+                    label="Hỗ trợ"
+                    icon={MessageSquare}
+                  />
                 )}
-                <Button asChild variant="ghost" size="icon-sm">
-                  <Link to="/orders" aria-label="Đơn hàng của tôi">
-                    <ReceiptText />
-                  </Link>
-                </Button>
+                <HeaderNavLink to="/orders" label="Đơn hàng" icon={Package} />
                 <Button
                   asChild
                   variant="ghost"
