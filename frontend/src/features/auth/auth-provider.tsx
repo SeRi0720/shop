@@ -20,8 +20,8 @@ import {
   type LoginInput,
   type User,
 } from "./auth-context"
+import { ME_KEY } from "./me-key"
 
-const ME_KEY = ["me"] as const
 const fetchMe = () => api.get<User>("/users/me").then((res) => res.data)
 
 export function AuthProvider({ children }: { children: ReactNode }) {

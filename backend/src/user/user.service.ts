@@ -19,6 +19,14 @@ const adminUserSelect = {
   createdAt: true,
 } as const satisfies Prisma.UserSelect;
 
+const profileSelect = {
+  id: true,
+  email: true,
+  fullName: true,
+  phone: true,
+  role: true,
+} as const satisfies Prisma.UserSelect;
+
 @Injectable()
 export class UserService {
   constructor(private readonly prisma: PrismaService) {}
@@ -113,6 +121,24 @@ export class UserService {
       select: adminUserSelect,
     });
     return AdminUserItemDto.from(updated);
+  }
+
+  /** Người dùng tự sửa hồ sơ: chỉ họ tên và số điện thoại. undefined = giữ nguyên, phone null = xóa. */
+  updateProfile(
+    id: number,
+    data: { fullName?: string; phone?: string | null },
+  ) {
+    if (data.fullName === undefined && data.phone === undefined) {
+      return this.prisma.user.findUniqueOrThrow({
+        where: { id },
+        select: profileSelect,
+      }); // không có gì để đổi thì không ghi DB
+    }
+    return this.prisma.user.update({
+      where: { id },
+      data: { fullName: data.fullName, phone: data.phone },
+      select: profileSelect,
+    });
   }
 
   /** Người dùng mới (chỉ USER) trong khoảng [from, to]; dùng cho thống kê ngày 3. */

@@ -17,6 +17,30 @@ const row = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
+function fakePrisma() {
+  const calls = { update: [] as unknown[], find: [] as unknown[] };
+  const row = {
+    id: 7,
+    email: 'a@b.c',
+    fullName: 'Tên mới',
+    phone: null,
+    role: 'USER' as const,
+  };
+  const prisma = {
+    user: {
+      update: (args: unknown) => {
+        calls.update.push(args);
+        return Promise.resolve(row);
+      },
+      findUniqueOrThrow: (args: unknown) => {
+        calls.find.push(args);
+        return Promise.resolve(row);
+      },
+    },
+  };
+  return { prisma, calls };
+}
+
 describe('UserService (khóa tài khoản)', () => {
   const user = {
     findUnique: jest.fn(),
@@ -119,5 +143,41 @@ describe('UserService (khóa tài khoản)', () => {
   it('DTO truy vấn: limit > 50 bị từ chối', async () => {
     const dto = plainToInstance(AdminUserQueryDto, { limit: '51' });
     expect(await validate(dto)).not.toHaveLength(0);
+  });
+});
+
+describe('UserService.updateProfile', () => {
+  it('chỉ ghi họ tên và số điện thoại, không select passwordHash', async () => {
+    const { prisma, calls } = fakePrisma();
+    const service = new UserService(prisma as never);
+    await service.updateProfile(7, {
+      fullName: 'Tên mới',
+      phone: '0912345678',
+    });
+    expect(calls.update).toHaveLength(1);
+    const args = calls.update[0] as {
+      where: unknown;
+      data: unknown;
+      select: Record<string, unknown>;
+    };
+    expect(args.where).toEqual({ id: 7 });
+    expect(args.data).toEqual({ fullName: 'Tên mới', phone: '0912345678' });
+    expect(args.select).not.toHaveProperty('passwordHash');
+  });
+
+  it('phone null được chuyển tiếp để xóa số', async () => {
+    const { prisma, calls } = fakePrisma();
+    const service = new UserService(prisma as never);
+    await service.updateProfile(7, { phone: null });
+    const args = calls.update[0] as { data: { phone: unknown } };
+    expect(args.data.phone).toBeNull();
+  });
+
+  it('không có trường nào thì không ghi DB', async () => {
+    const { prisma, calls } = fakePrisma();
+    const service = new UserService(prisma as never);
+    await service.updateProfile(7, {});
+    expect(calls.update).toHaveLength(0);
+    expect(calls.find).toHaveLength(1);
   });
 });
