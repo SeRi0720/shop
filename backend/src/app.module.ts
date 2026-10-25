@@ -12,6 +12,7 @@ import { OrderModule } from './order/order.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ChatModule } from './chat/chat.module';
 import { StatsModule } from './stats/stats.module';
+import { KafkaModule } from './kafka/kafka.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { StatsModule } from './stats/stats.module';
     OrderModule,
     ChatModule,
     StatsModule,
+    KafkaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -10,6 +10,7 @@ import { UPLOAD_URL_PREFIX, getUploadDir } from './product/upload.config';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.setGlobalPrefix('api');
+  app.enableShutdownHooks();
   app.use(cookieParser());
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
