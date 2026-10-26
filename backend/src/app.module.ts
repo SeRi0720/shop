@@ -13,6 +13,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { ChatModule } from './chat/chat.module';
 import { StatsModule } from './stats/stats.module';
 import { KafkaModule } from './kafka/kafka.module';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { KafkaModule } from './kafka/kafka.module';
     ChatModule,
     StatsModule,
     KafkaModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

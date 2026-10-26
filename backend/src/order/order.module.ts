@@ -9,6 +9,7 @@ import { OrderService } from './order.service';
 import { AdminOrderController } from './admin-order.controller';
 import { VnpayController } from './vnpay.controller';
 import { OrderExpiryScheduler } from './order-expiry.scheduler';
+import { KafkaModule } from '../kafka/kafka.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { OrderExpiryScheduler } from './order-expiry.scheduler';
     CartModule,
     ProductModule,
     PaymentModule,
+    KafkaModule,
   ],
   controllers: [OrderController, AdminOrderController, VnpayController],
   providers: [OrderService, OrderExpiryScheduler],

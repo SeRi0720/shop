@@ -123,14 +123,27 @@ function setup() {
     }),
   };
 
+  const events = { publish: jest.fn().mockResolvedValue(undefined) };
+
   const service = new OrderService(
     prisma as never,
     cart as never,
     products as never,
     payments as never,
     vnpay as never,
+    events as never, // tham số thứ 6: EventBus giả
   );
-  return { service, calls, tx, prisma, cart, products, payments, vnpay };
+  return {
+    service,
+    calls,
+    tx,
+    events,
+    prisma,
+    cart,
+    products,
+    payments,
+    vnpay,
+  };
 }
 
 const lockedRow = (status: string, paymentMethod: string) => [
@@ -160,7 +173,7 @@ describe('OrderService.create', () => {
           ],
         },
       }),
-      select: { id: true },
+      select: { id: true, createdAt: true },
     });
     expect(s.products.decreaseStock).toHaveBeenCalledWith(s.tx, [
       { productId: 5, quantity: 2 },
@@ -273,7 +286,7 @@ describe('OrderService.create', () => {
 
     expect(s.tx.order.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ paymentMethod: 'VNPAY' }),
-      select: { id: true },
+      select: { id: true, createdAt: true },
     });
     expect(s.vnpay.makeTxnRef).toHaveBeenCalledWith(100);
     expect(s.payments.createVnpay).toHaveBeenCalledWith(s.tx, {

@@ -1,10 +1,17 @@
 import { Module } from '@nestjs/common';
+import { PrismaModule } from '../prisma/prisma.module';
 import { EVENT_BUS } from './event-bus';
+import { IdempotencyService } from './idempotency.service';
 import { KafkaService } from './kafka.service';
 
-/** Hạ tầng dùng chung, không phải module nghiệp vụ. Module cần publish/consume thì import KafkaModule. */
+/** Hạ tầng dùng chung, không phải module nghiệp vụ. Sở hữu bảng processed_events. */
 @Module({
-  providers: [KafkaService, { provide: EVENT_BUS, useExisting: KafkaService }],
-  exports: [KafkaService, EVENT_BUS],
+  imports: [PrismaModule],
+  providers: [
+    KafkaService,
+    IdempotencyService,
+    { provide: EVENT_BUS, useExisting: KafkaService },
+  ],
+  exports: [KafkaService, IdempotencyService, EVENT_BUS],
 })
 export class KafkaModule {}

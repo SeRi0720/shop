@@ -226,3 +226,14 @@ model Message {
   @@index([conversationId, createdAt])
   @@map("messages")
 }
+
+model ProcessedEvent {
+  id          Int      @id @default(autoincrement())
+  consumer    String
+  eventId     String   @map("event_id")
+  processedAt DateTime @default(now()) @map("processed_at")
+
+  @@unique([consumer, eventId])
+  @@index([processedAt])
+  @@map("processed_events")
+}

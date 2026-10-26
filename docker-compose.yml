@@ -14,7 +14,7 @@ services:
 
   kafka:
     image: apache/kafka:4.4.0
-    restart: unless-stopped
+    restart: "no"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -31,6 +31,7 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
       KAFKA_LOG_DIRS: /var/lib/kafka/data
       KAFKA_HEAP_OPTS: "-Xmx512M -Xms512M"
+      KAFKA_OFFSETS_TOPIC_NUM_PARTITIONS: 1
     ports:
       - "127.0.0.1:9092:9092"
     volumes:
