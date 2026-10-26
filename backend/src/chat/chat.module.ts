@@ -24,5 +24,6 @@ import { ChatController } from './chat.controller';
     ChatService,
     { provide: MessageRateLimiter, useFactory: () => new MessageRateLimiter() },
   ],
+  exports: [ChatGateway],
 })
 export class ChatModule {}

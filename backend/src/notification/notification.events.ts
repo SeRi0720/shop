@@ -1,4 +1,5 @@
 import { IsIn, IsInt, IsNotEmpty, IsString, Min } from 'class-validator';
+import { parseEnvelope } from '../kafka/events';
 
 export const NOTIFICATION = 'notification';
 export const KIND_ADMIN_NEW_ORDER = 'ADMIN_NEW_ORDER';
@@ -14,3 +15,6 @@ export class NotificationData {
 /** Có tính xác định (không sinh ngẫu nhiên): nấc 1 chạy lại thì nấc 2 vẫn nhận ra trùng. */
 export const deriveAdminNewOrderEventId = (causationId: string): string =>
   `${causationId}:admin-new-order`;
+
+export const parseNotification = (raw: string | null) =>
+  parseEnvelope(raw, NOTIFICATION, NotificationData);

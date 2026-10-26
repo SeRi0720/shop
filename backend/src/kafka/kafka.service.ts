@@ -5,6 +5,7 @@ import {
   type OnApplicationShutdown,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { setTimeout as delay } from 'node:timers/promises';
 import type { EventBus } from './event-bus';
 import { envelopeHeaders, type EventEnvelope } from './events';
 import {
@@ -17,10 +18,13 @@ import {
 } from './kafka.client';
 import { readKafkaConfig, type KafkaConfig } from './kafka.config';
 import { TOPIC_SPECS } from './kafka.constants';
+import { MessageProcessor } from './message-processor';
 
 export interface ConsumerDefinition {
   groupId: string;
   topic: string;
+  /** Topic dead-letter của consumer này (quyết định 9). */
+  dltTopic: string;
   handle(message: IncomingMessage): Promise<void>;
 }
 
@@ -38,7 +42,8 @@ export class KafkaService
   private topicsReady = false;
   private producerReady = false;
   private stopping = false;
-  private wake?: () => void;
+  private readonly abort = new AbortController();
+  private readonly processor: MessageProcessor;
 
   private readonly definitions: ConsumerDefinition[] = [];
   private readonly started = new Set<ConsumerDefinition>();
@@ -51,6 +56,20 @@ export class KafkaService
       KAFKA_CLIENT_ID: config.get<string>('KAFKA_CLIENT_ID'),
       KAFKA_CONSUMERS_ENABLED: config.get<string>('KAFKA_CONSUMERS_ENABLED'),
       KAFKA_RETRY_BASE_MS: config.get<string>('KAFKA_RETRY_BASE_MS'),
+    });
+    this.processor = new MessageProcessor({
+      baseDelayMs: this.cfg.retryBaseMs,
+      maxRetries: 3,
+      dltFailureDelayMs: Math.max(this.cfg.retryBaseMs, 1_000),
+      sleep: (ms) => this.sleepOrStop(ms),
+      isStopping: () => this.stopping,
+      publishDlt: (topic, key, value, headers) =>
+        this.publishRaw(topic, key, value, headers),
+      now: () => new Date(),
+      logger: {
+        warn: (m) => this.logger.warn(m),
+        error: (m) => this.logger.error(m),
+      },
     });
   }
 
@@ -89,20 +108,34 @@ export class KafkaService
     });
   }
 
+  /** Gửi nguyên văn (dead-letter): giữ khóa, giá trị và header gốc, không bọc envelope mới. */
+  async publishRaw(
+    topic: string,
+    key: string | null,
+    value: string | null,
+    headers: Record<string, string>,
+  ): Promise<void> {
+    if (!this.cfg.enabled) return;
+    if (!this.producerReady || !this.producer) {
+      throw new Error('Kafka producer chưa sẵn sàng');
+    }
+    await this.producer.send({ topic, messages: [{ key, value, headers }] });
+  }
+
   // ---- kết nối ở nền ----
 
   private async connectLoop(): Promise<void> {
-    let delay = 2_000;
+    let backoff = 2_000;
     while (!this.stopping) {
       try {
         await this.connectOnce();
         return;
       } catch (error) {
         this.logger.warn(
-          `Kafka chưa sẵn sàng (${errMsg(error)}); thử lại sau ${delay / 1000}s`,
+          `Kafka chưa sẵn sàng (${errMsg(error)}); thử lại sau ${backoff / 1000}s`,
         );
-        await this.sleep(delay);
-        delay = Math.min(delay * 2, MAX_BACKOFF_MS);
+        await this.sleepOrStop(backoff);
+        backoff = Math.min(backoff * 2, MAX_BACKOFF_MS);
       }
     }
   }
@@ -162,15 +195,8 @@ export class KafkaService
         await consumer.subscribe({ topics: [def.topic] });
         await consumer.run({
           eachMessage: async ({ topic, partition, message }) => {
-            const incoming = toIncoming(topic, partition, message);
-            try {
-              await def.handle(incoming);
-            } catch (error) {
-              // TẠM (ngày 2): ghi log rồi bỏ qua. Ngày 4 thay bằng retry + dead-letter.
-              this.logger.error(
-                `Consumer ${def.groupId} lỗi ${topic}[${partition}]@${incoming.offset}: ${errMsg(error)}`,
-              );
-            }
+            // Resolve = xong hoặc đã vào dead-letter (thư viện lưu offset); ném lỗi = không commit.
+            await this.processor.process(def, toIncoming(topic, partition, message));
           },
         });
       } catch (error) {
@@ -188,7 +214,7 @@ export class KafkaService
   async onApplicationShutdown(signal?: string): Promise<void> {
     this.stopping = true;
     this.producerReady = false;
-    this.wake?.();
+    this.abort.abort();
     for (const consumer of this.consumers) {
       try {
         await consumer.disconnect();
@@ -207,14 +233,13 @@ export class KafkaService
     }
   }
 
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => {
-      const timer = setTimeout(resolve, ms);
-      this.wake = () => {
-        clearTimeout(timer);
-        resolve();
-      };
-    });
+  /** Ngủ nhưng thức ngay khi ứng dụng tắt (không giữ tiến trình lại). */
+  private async sleepOrStop(ms: number): Promise<void> {
+    try {
+      await delay(ms, undefined, { signal: this.abort.signal });
+    } catch {
+      /* bị hủy khi tắt: bỏ qua */
+    }
   }
 }
 

@@ -129,6 +129,11 @@ export class ChatGateway
     }
   }
 
+  emitToAdmins(event: string, payload: unknown): void {
+    if (!this.server) throw new Error('Socket server chưa khởi tạo');
+    this.server.to(ROOM_ADMINS).emit(event, payload);
+  }
+
   private failure(error: unknown, userId: number): SendAck {
     if (error instanceof ChatError) {
       return { ok: false, code: error.code, message: error.message };
