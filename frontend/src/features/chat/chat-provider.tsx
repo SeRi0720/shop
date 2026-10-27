@@ -6,7 +6,16 @@ import {
   type ReactNode,
 } from "react"
 import { useQueryClient } from "@tanstack/react-query"
+import { useNavigate } from "react-router"
+import { toast } from "sonner"
 import { useAuth } from "@/features/auth/auth-context"
+import {
+  NEW_ORDER_EVENT,
+  newOrderDescription,
+  newOrderTitle,
+  parseNewOrder,
+  refreshAfterNewOrder,
+} from "@/features/notification/admin-new-order"
 import { notifySessionExpired, refreshSession } from "@/lib/api"
 import {
   connectSocket,
@@ -25,6 +34,7 @@ const RETRY_MS = 3000
 export function ChatProvider({ children }: { children: ReactNode }) {
   const { status, user } = useAuth()
   const qc = useQueryClient()
+  const navigate = useNavigate()
   const viewerId = user?.id
   const isAdmin = user?.role === "ADMIN"
   const connected = useSyncExternalStore(subscribeConnection, isConnected)
@@ -46,6 +56,21 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       if (isAdmin && !message.fromAdmin) markUnread(message.customerId)
     }
 
+    // Chỉ ADMIN: server cũng chỉ phát vào phòng admins, đây là lớp phụ.
+    const onNewOrder = (payload: unknown) => {
+      const order = parseNewOrder(payload)
+      if (!order) return
+      toast.info(newOrderTitle(order), {
+        id: `new-order-${order.orderId}`, // giao lại cùng đơn thì thay toast, không chồng
+        description: newOrderDescription(order),
+        action: {
+          label: "Xem",
+          onClick: () => void navigate(`/admin/orders/${order.orderId}`),
+        },
+      })
+      refreshAfterNewOrder(qc)
+    }
+
     const onConnectError = (error: Error) => {
       // active = true: Socket.IO tự nối lại (mất mạng, server tắt) -> không làm gì.
       if (socket.active) return
@@ -65,14 +90,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     socket.on("connect", onConnect)
     socket.on("message:new", onMessage)
     socket.on("connect_error", onConnectError)
+    if (isAdmin) socket.on(NEW_ORDER_EVENT, onNewOrder)
     return () => {
       socket.off("connect", onConnect)
       socket.off("message:new", onMessage)
       socket.off("connect_error", onConnectError)
+      socket.off(NEW_ORDER_EVENT, onNewOrder)
       window.clearTimeout(retryTimer)
       resetUnread()
     }
-  }, [qc, viewerId, isAdmin])
+  }, [qc, viewerId, isAdmin, navigate])
 
   // Kết nối theo trạng thái đăng nhập. Không làm gì khi đang "initializing".
   useEffect(() => {
