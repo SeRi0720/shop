@@ -1,0 +1,117 @@
+# Compose cho máy ảo (demo và đo số liệu). Không phải production.
+# Bản ngày 1 tuần 10: Postgres, Kafka, backend-1, backend-2, migrate.
+# Chưa có: Redis (ngày 3), Nginx + web (ngày 5).
+# Cần file .env cùng thư mục (ngoài Git): xem hướng dẫn ngày 1.
+name: shop-vm # project riêng: không dùng chung volume/container với docker-compose.yml (dev)
+
+x-backend: &backend
+  image: shop-backend:vm
+  build:
+    context: ./backend
+    target: runtime
+  restart: unless-stopped
+  mem_limit: 512m
+  env_file: .env
+  volumes:
+    - uploads:/app/uploads
+  depends_on:
+    postgres:
+      condition: service_healthy
+    kafka:
+      condition: service_healthy
+  healthcheck:
+    # Ngày 4 đổi /api thành /api/health khi endpoint đã có.
+    test:
+      [
+        "CMD",
+        "node",
+        "-e",
+        "fetch('http://127.0.0.1:3000/api').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+      ]
+    interval: 15s
+    timeout: 5s
+    retries: 5
+    start_period: 30s
+
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    mem_limit: 512m
+    command: ["postgres", "-c", "max_connections=50"]
+    environment:
+      POSTGRES_USER: shop
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Thiếu POSTGRES_PASSWORD trong .env}
+      POSTGRES_DB: shop
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shop -d shop"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Không publish cổng 5432 ra ngoài.
+
+  kafka:
+    image: apache/kafka:4.4.0
+    restart: unless-stopped
+    mem_limit: 1g # lớn hơn heap 512M vì còn bộ nhớ ngoài heap
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENERS: CONTROLLER://:9093,INTERNAL://:29092,HOST://:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,HOST://127.0.0.1:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_HEAP_OPTS: "-Xmx512M -Xms512M"
+      KAFKA_OFFSETS_TOPIC_NUM_PARTITIONS: 1
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:29092 > /dev/null 2>&1",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+    # Không publish cổng 9092. Backend nối qua kafka:29092 (listener INTERNAL).
+
+  backend-1:
+    <<: *backend
+    environment:
+      KAFKA_CLIENT_ID: shop-backend-1
+
+  backend-2:
+    <<: *backend
+    environment:
+      KAFKA_CLIENT_ID: shop-backend-2
+
+  # Chạy một lần: áp migration và seed (admin + sản phẩm mẫu).
+  # docker compose -f docker-compose.vm.yml --profile setup run --rm migrate
+  migrate:
+    image: shop-backend-migrate:vm
+    profiles: ["setup"]
+    build:
+      context: ./backend
+      target: build # tầng build có Prisma CLI và tsx
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: sh -c "npx prisma migrate deploy && npx prisma db seed"
+
+volumes:
+  postgres_data:
+  kafka_data:
+  uploads:
