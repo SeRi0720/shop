@@ -21,25 +21,38 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+const REFRESH_LOCK = "shop:refresh-session"
+
+function runExclusive<T>(task: () => Promise<T>): Promise<T> {
+  // Web Locks chỉ có ở secure context (HTTPS hoặc localhost); không có thì chạy không khóa.
+  return typeof navigator !== "undefined" && "locks" in navigator
+    ? navigator.locks.request(REFRESH_LOCK, task)
+    : task()
+}
+
+async function requestRefresh(): Promise<string | null> {
+  try {
+    // Dùng axios trần (không qua `api`) để không dính interceptor.
+    const res = await axios.post<{ accessToken: string }>(
+      "/api/auth/refresh",
+      null,
+      { withCredentials: true }
+    )
+    setAccessToken(res.data.accessToken)
+    return res.data.accessToken
+  } catch {
+    setAccessToken(null)
+    return null
+  }
+}
+
+// Singleton trong một tab (StrictMode, nhiều request 401 cùng lúc chỉ gọi một lần).
 let refreshPromise: Promise<string | null> | null = null
 export function refreshSession(): Promise<string | null> {
   if (!refreshPromise) {
-    // Dùng axios trần (không qua `api`) để không dính interceptor.
-    refreshPromise = axios
-      .post<{ accessToken: string }>("/api/auth/refresh", null, {
-        withCredentials: true,
-      })
-      .then((res) => {
-        setAccessToken(res.data.accessToken)
-        return res.data.accessToken
-      })
-      .catch(() => {
-        setAccessToken(null)
-        return null
-      })
-      .finally(() => {
-        refreshPromise = null
-      })
+    refreshPromise = runExclusive(requestRefresh).finally(() => {
+      refreshPromise = null
+    })
   }
   return refreshPromise
 }
