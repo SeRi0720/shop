@@ -1,8 +1,10 @@
 import { Test } from '@nestjs/testing';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Logger, NotFoundException } from '@nestjs/common';
 import { plainToInstance, type ClassConstructor } from 'class-transformer';
 import { validate } from 'class-validator';
 import { PrismaService } from '../prisma/prisma.service';
+import { CacheService } from '../redis/cache.service';
+import { FakeCacheStore } from '../redis/testing/fake-cache-store';
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -64,7 +66,12 @@ describe('ProductService', () => {
   beforeEach(async () => {
     prisma = makePrisma();
     const moduleRef = await Test.createTestingModule({
-      providers: [ProductService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        ProductService,
+        { provide: PrismaService, useValue: prisma },
+        // Không cache: các ca cũ kiểm đường đọc DB. Ca cache viết riêng (bước 7).
+        { provide: CacheService, useValue: CacheService.disabled() },
+      ],
     }).compile();
     service = moduleRef.get(ProductService);
   });
@@ -326,6 +333,237 @@ describe('ProductService', () => {
         expect.objectContaining({ data: { isActive: false } }),
       );
       expect(res.isActive).toBe(false);
+    });
+  });
+
+  describe('cache (đường đọc công khai)', () => {
+    let store: FakeCacheStore;
+
+    beforeEach(async () => {
+      store = new FakeCacheStore();
+      prisma = makePrisma();
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          ProductService,
+          { provide: PrismaService, useValue: prisma },
+          { provide: CacheService, useValue: new CacheService(store) },
+        ],
+      }).compile();
+      service = moduleRef.get(ProductService);
+    });
+
+    describe('search', () => {
+      it('khách: lần hai trúng cache, không gọi Prisma lại', async () => {
+        const first = await service.search({ q: 'mac' }, false);
+        const second = await service.search({ q: 'mac' }, false);
+        expect(prisma.product.findMany).toHaveBeenCalledTimes(1);
+        expect(prisma.product.count).toHaveBeenCalledTimes(1);
+        expect(second).toEqual(first);
+      });
+
+      it('cùng query khác thứ tự trường, q có khoảng trắng: dùng chung một khóa', async () => {
+        await service.search({ q: 'mac', categoryId: 1 }, false);
+        await service.search({ categoryId: 1, q: ' mac ' }, false);
+        expect(prisma.product.findMany).toHaveBeenCalledTimes(1);
+      });
+
+      it('query khác nhau thì không dùng chung kết quả', async () => {
+        await service.search({ categoryId: 1 }, false);
+        await service.search({ categoryId: 2 }, false);
+        expect(prisma.product.findMany).toHaveBeenCalledTimes(2);
+      });
+
+      it('ghi TTL 60 giây cho danh sách', async () => {
+        await service.search({}, false);
+        const [key] = store.cacheKeys();
+        expect(key).toMatch(/^cache:catalog:v0:products:[0-9a-f]{40}$/);
+        expect(store.ttls.get(key)).toBe(60);
+      });
+
+      it('admin (includeHidden=true) không qua cache', async () => {
+        await service.search({}, true);
+        await service.search({}, true);
+        expect(prisma.product.findMany).toHaveBeenCalledTimes(2);
+        expect(store.cacheKeys()).toEqual([]);
+      });
+
+      it('minPrice > maxPrice: 400 và không chạm Redis', async () => {
+        await expect(
+          service.search({ minPrice: 200, maxPrice: 100 }, false),
+        ).rejects.toThrow(BadRequestException);
+        expect(store.gets).toHaveLength(0);
+      });
+    });
+
+    describe('findOne', () => {
+      it('khách: lần hai trúng cache, không gọi Prisma lại', async () => {
+        prisma.product.findFirst.mockResolvedValue(productRow);
+        const first = await service.findOne(5, false);
+        const second = await service.findOne(5, false);
+        expect(prisma.product.findFirst).toHaveBeenCalledTimes(1);
+        expect(second).toMatchObject({
+          id: 5,
+          name: 'MacBook',
+          category,
+          brand,
+        });
+        expect(first.id).toBe(second.id);
+      });
+
+      it('ghi TTL 60 giây cho chi tiết', async () => {
+        prisma.product.findFirst.mockResolvedValue(productRow);
+        await service.findOne(5, false);
+        expect(store.ttls.get('cache:catalog:v0:product:5')).toBe(60);
+      });
+
+      it('admin (includeHidden=true) không qua cache', async () => {
+        prisma.product.findFirst.mockResolvedValue(productRow);
+        await service.findOne(5, true);
+        await service.findOne(5, true);
+        expect(prisma.product.findFirst).toHaveBeenCalledTimes(2);
+        expect(store.cacheKeys()).toEqual([]);
+      });
+
+      it('404 không được cache: mỗi lần đều hỏi DB', async () => {
+        prisma.product.findFirst.mockResolvedValue(null);
+        await expect(service.findOne(5, false)).rejects.toThrow(
+          NotFoundException,
+        );
+        await expect(service.findOne(5, false)).rejects.toThrow(
+          NotFoundException,
+        );
+        expect(prisma.product.findFirst).toHaveBeenCalledTimes(2);
+        expect(store.cacheKeys()).toEqual([]);
+      });
+
+      it('id vượt Int: 404 và không chạm Redis', async () => {
+        await expect(service.findOne(2_147_483_648, false)).rejects.toThrow(
+          NotFoundException,
+        );
+        expect(store.gets).toHaveLength(0);
+      });
+
+      it('hạn chế đã biết: tồn kho hiển thị có thể trễ tới hết TTL', async () => {
+        prisma.product.findFirst.mockResolvedValue({ ...productRow, stock: 3 });
+        await service.findOne(5, false);
+        prisma.product.findFirst.mockResolvedValue({ ...productRow, stock: 1 });
+        const second = await service.findOne(5, false);
+        expect(second.stock).toBe(3); // đặt đơn không bump; giỏ và đơn vẫn đọc DB
+      });
+    });
+
+    describe('đường tồn kho không qua cache', () => {
+      it('findManyForCart luôn đọc Prisma', async () => {
+        await service.findManyForCart([5]);
+        await service.findManyForCart([5]);
+        expect(prisma.product.findMany).toHaveBeenCalledTimes(2);
+        expect(store.cacheKeys()).toEqual([]);
+        expect(store.gets).toHaveLength(0);
+      });
+    });
+
+    describe('vô hiệu hóa sau khi ghi', () => {
+      const dto = {
+        name: 'MacBook',
+        price: 1000,
+        stock: 3,
+        categoryId: 1,
+        brandId: 2,
+      };
+
+      it('create: danh sách sau đó đọc lại DB', async () => {
+        await service.search({}, false);
+        prisma.product.create.mockResolvedValue(productRow);
+        await service.create(dto);
+        await service.search({}, false);
+        expect(prisma.product.findMany).toHaveBeenCalledTimes(2);
+      });
+
+      it('update: danh sách và chi tiết sau đó đọc lại DB', async () => {
+        prisma.product.findFirst.mockResolvedValue(productRow);
+        prisma.product.update.mockResolvedValue(productRow);
+        await service.search({}, false);
+        await service.findOne(5, false);
+        await service.update(5, { price: 500 });
+        await service.search({}, false);
+        await service.findOne(5, false);
+        expect(prisma.product.findMany).toHaveBeenCalledTimes(2);
+        // findFirst: 1 (findOne khách) + 1 (update gọi findOne admin) + 1 (findOne khách sau bump)
+        expect(prisma.product.findFirst).toHaveBeenCalledTimes(3);
+      });
+
+      it('ẩn sản phẩm bằng update(isActive=false): khách thấy 404 ngay, không chờ hết TTL', async () => {
+        prisma.product.findFirst.mockResolvedValue(productRow);
+        await service.findOne(5, false); // vào cache
+        prisma.product.update.mockResolvedValue({
+          ...productRow,
+          isActive: false,
+        });
+        await service.update(5, { isActive: false });
+        prisma.product.findFirst.mockResolvedValue(null); // khách lọc isActive=true
+        await expect(service.findOne(5, false)).rejects.toThrow(
+          NotFoundException,
+        );
+      });
+
+      it('create lỗi (400): không bump, cache cũ còn nguyên', async () => {
+        await service.search({}, false);
+        prisma.category.count.mockResolvedValue(0);
+        await expect(service.create(dto)).rejects.toThrow(BadRequestException);
+        await service.search({}, false);
+        expect(prisma.product.findMany).toHaveBeenCalledTimes(1);
+      });
+
+      it('update lỗi (404): không bump, cache cũ còn nguyên', async () => {
+        await service.search({}, false);
+        prisma.product.findFirst.mockResolvedValue(null);
+        await expect(service.update(5, { price: 500 })).rejects.toThrow(
+          NotFoundException,
+        );
+        await service.search({}, false);
+        expect(prisma.product.findMany).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    describe('fail-open', () => {
+      beforeEach(() => {
+        jest
+          .spyOn(Logger.prototype, 'warn')
+          .mockImplementation(() => undefined);
+        store.fail = true;
+      });
+
+      afterEach(() => jest.restoreAllMocks());
+
+      it('Redis chết: search và findOne vẫn trả đúng, mỗi lần đọc DB', async () => {
+        prisma.product.findFirst.mockResolvedValue(productRow);
+        await expect(service.search({}, false)).resolves.toMatchObject({
+          total: 0,
+        });
+        await service.search({}, false);
+        await expect(service.findOne(5, false)).resolves.toMatchObject({
+          id: 5,
+        });
+        expect(prisma.product.findMany).toHaveBeenCalledTimes(2);
+      });
+
+      it('Redis chết: create và update vẫn thành công', async () => {
+        prisma.product.create.mockResolvedValue(productRow);
+        prisma.product.findFirst.mockResolvedValue(productRow);
+        prisma.product.update.mockResolvedValue(productRow);
+        await expect(
+          service.create({
+            name: 'MacBook',
+            price: 1000,
+            stock: 3,
+            categoryId: 1,
+            brandId: 2,
+          }),
+        ).resolves.toMatchObject({ id: 5 });
+        await expect(service.update(5, { price: 500 })).resolves.toMatchObject({
+          id: 5,
+        });
+      });
     });
   });
 

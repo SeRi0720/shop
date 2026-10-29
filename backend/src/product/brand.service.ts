@@ -1,18 +1,27 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { toHttpException } from '../common/prisma-error';
 import { PrismaService } from '../prisma/prisma.service';
+import { CacheService } from '../redis/cache.service';
+import { BRANDS_SCOPE, CATALOG_TTL } from './product-cache';
 
 @Injectable()
 export class BrandService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cache: CacheService,
+  ) {}
 
   findAll() {
-    return this.prisma.brand.findMany({ orderBy: { name: 'asc' } });
+    return this.cache.getOrSet(BRANDS_SCOPE, CATALOG_TTL.taxonomy, () =>
+      this.prisma.brand.findMany({ orderBy: { name: 'asc' } }),
+    );
   }
 
   async create(name: string) {
     try {
-      return await this.prisma.brand.create({ data: { name } });
+      const row = await this.prisma.brand.create({ data: { name } });
+      await this.cache.bump(); // SAU khi ghi DB xong
+      return row;
     } catch (error) {
       throw toHttpException(error, 'Thương hiệu');
     }
@@ -20,10 +29,12 @@ export class BrandService {
 
   async update(id: number, name: string) {
     try {
-      return await this.prisma.brand.update({
+      const row = await this.prisma.brand.update({
         where: { id },
         data: { name },
       });
+      await this.cache.bump(); // đổi tên làm đổi cả danh sách sản phẩm (có brand.name)
+      return row;
     } catch (error) {
       throw toHttpException(error, 'Thương hiệu');
     }
@@ -39,6 +50,7 @@ export class BrandService {
     }
     try {
       await this.prisma.brand.delete({ where: { id } });
+      await this.cache.bump();
     } catch (error) {
       throw toHttpException(error, 'Thương hiệu'); // bắt P2003 nếu có race
     }

@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { PrismaService } from '../prisma/prisma.service';
+import { CacheService } from '../redis/cache.service';
 import { ProductService } from './product.service';
 import {
   IMAGE_EXT,
@@ -26,6 +27,7 @@ export class ProductImageService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly productService: ProductService,
+    private readonly cache: CacheService,
   ) {}
 
   async addImages(productId: number, files: UploadedImage[]) {
@@ -59,8 +61,8 @@ export class ProductImageService {
         await writeFile(join(dir, names[i]), file.buffer);
         written.push(names[i]);
       }
-      // `return await` (không bỏ await) để lỗi DB bị catch bên dưới và dọn file.
-      return await this.prisma.$transaction(
+      // `await` (không bỏ) để lỗi DB bị catch bên dưới và dọn file.
+      const created = await this.prisma.$transaction(
         names.map((name, i) =>
           this.prisma.productImage.create({
             data: {
@@ -72,6 +74,8 @@ export class ProductImageService {
           }),
         ),
       );
+      await this.cache.bump(); // chỉ khi ghi DB thành công
+      return created;
     } catch (error) {
       await Promise.allSettled(written.map((n) => unlink(join(dir, n))));
       throw error;
@@ -90,6 +94,7 @@ export class ProductImageService {
     // Xóa DB trước, file sau: nếu xóa file lỗi chỉ còn file mồ côi vô hại,
     // còn làm ngược lại thì có thể để lại dòng DB trỏ tới ảnh không tồn tại.
     await this.prisma.productImage.delete({ where: { id: image.id } });
+    await this.cache.bump();
     try {
       await unlink(join(getUploadDir(), basename(image.url)));
     } catch (error) {

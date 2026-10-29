@@ -5,6 +5,8 @@ import { OrderService } from '../src/order/order.service';
 import { PaymentService } from '../src/payment/payment.service';
 import { VnpayService } from '../src/payment/vnpay.service';
 import type { PrismaService } from '../src/prisma/prisma.service';
+import type { EventBus } from '../src/kafka/event-bus';
+import { CacheService } from '../src/redis/cache.service';
 import { ProductService } from '../src/product/product.service';
 import {
   createProduct,
@@ -35,15 +37,18 @@ describe('Tranh chấp xác nhận VNPay (PostgreSQL thật)', () => {
     }
     prisma = await createTestPrisma();
     const db = prisma as unknown as PrismaService;
-    const products = new ProductService(db);
+    const products = new ProductService(db, CacheService.disabled());
     payments = new PaymentService(db);
     vnpay = new VnpayService();
+    // EventBus giả (tham số thứ 6 của OrderService): ca tranh chấp không cần Kafka.
+    const events: EventBus = { publish: () => Promise.resolve() };
     orders = new OrderService(
       db,
       new CartService(db, products),
       products,
       payments,
       vnpay,
+      events,
     );
   });
 

@@ -4,6 +4,7 @@ import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { PrismaService } from '../prisma/prisma.service';
+import { CacheService } from '../redis/cache.service';
 import { ProductImageService } from './product-image.service';
 import { ProductService } from './product.service';
 import { imageFileFilter, imageUploadOptions } from './upload.config';
@@ -36,6 +37,7 @@ describe('ProductImageService', () => {
   let service: ProductImageService;
   let prisma: ReturnType<typeof makePrisma>;
   let productService: { findOne: jest.Mock };
+  let cache: { bump: jest.Mock };
   let dir: string;
 
   beforeEach(async () => {
@@ -44,11 +46,13 @@ describe('ProductImageService', () => {
     process.env.UPLOAD_DIR = dir;
     prisma = makePrisma();
     productService = { findOne: jest.fn().mockResolvedValue({ id: 1 }) };
+    cache = { bump: jest.fn().mockResolvedValue(undefined) };
     const moduleRef = await Test.createTestingModule({
       providers: [
         ProductImageService,
         { provide: PrismaService, useValue: prisma },
         { provide: ProductService, useValue: productService },
+        { provide: CacheService, useValue: cache },
       ],
     }).compile();
     service = moduleRef.get(ProductImageService);
@@ -145,6 +149,66 @@ describe('ProductImageService', () => {
         NotFoundException,
       );
       expect(prisma.productImage.findFirst).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('cache', () => {
+    const row = { id: 5, productId: 1, url: '/api/uploads/x.png' };
+
+    it('addImages thành công: bump đúng một lần', async () => {
+      await service.addImages(1, [img(), img()]);
+      expect(cache.bump).toHaveBeenCalledTimes(1);
+    });
+
+    it('addImages lỗi DB: không bump', async () => {
+      prisma.$transaction.mockRejectedValue(new Error('db down'));
+      await expect(service.addImages(1, [img()])).rejects.toThrow('db down');
+      expect(cache.bump).not.toHaveBeenCalled();
+    });
+
+    it('addImages bị từ chối (404, vượt 8 ảnh, mimetype lạ): không bump', async () => {
+      productService.findOne.mockRejectedValueOnce(new NotFoundException());
+      await expect(service.addImages(999, [img()])).rejects.toThrow(
+        NotFoundException,
+      );
+      prisma.productImage.count.mockResolvedValue(8);
+      await expect(service.addImages(1, [img()])).rejects.toThrow(
+        BadRequestException,
+      );
+      prisma.productImage.count.mockResolvedValue(0);
+      await expect(
+        service.addImages(1, [img('application/pdf', 'a.pdf')]),
+      ).rejects.toThrow(BadRequestException);
+      expect(cache.bump).not.toHaveBeenCalled();
+    });
+
+    it('removeImage thành công: bump đúng một lần', async () => {
+      prisma.productImage.findFirst.mockResolvedValue(row);
+      await service.removeImage(1, 5);
+      expect(cache.bump).toHaveBeenCalledTimes(1);
+    });
+
+    it('removeImage: bump chạy SAU khi xóa dòng DB', async () => {
+      const order: string[] = [];
+      prisma.productImage.findFirst.mockResolvedValue(row);
+      prisma.productImage.delete.mockImplementation(() => {
+        order.push('delete');
+        return Promise.resolve(row);
+      });
+      cache.bump.mockImplementation(() => {
+        order.push('bump');
+        return Promise.resolve();
+      });
+      await service.removeImage(1, 5);
+      expect(order).toEqual(['delete', 'bump']);
+    });
+
+    it('removeImage: ảnh không thuộc sản phẩm (404): không bump', async () => {
+      prisma.productImage.findFirst.mockResolvedValue(null);
+      await expect(service.removeImage(1, 5)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(cache.bump).not.toHaveBeenCalled();
     });
   });
 

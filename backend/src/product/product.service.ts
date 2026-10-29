@@ -25,17 +25,30 @@ import type {
   StockLine,
 } from './product.types';
 import { escapeLike } from '../common/escape-like';
+import { CacheService } from '../redis/cache.service';
+import {
+  CATALOG_TTL,
+  DEFAULT_LIMIT,
+  DEFAULT_PAGE,
+  productListScope,
+  productScope,
+} from './product-cache';
 
 const MAX_INT = 2_147_483_647;
 
 @Injectable()
 export class ProductService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    // Tham số CUỐI: e2e và script dựng bằng tay dùng CacheService.disabled().
+    private readonly cache: CacheService,
+  ) {}
 
   async search(
     query: ProductQueryDto,
     includeHidden: boolean,
   ): Promise<ProductListResponseDto> {
+    // Kiểm tra TRƯỚC khi chạm cache: lỗi 400 không đi qua cache.
     const { minPrice, maxPrice } = query;
     if (
       minPrice !== undefined &&
@@ -44,8 +57,20 @@ export class ProductService {
     ) {
       throw new BadRequestException('minPrice không được lớn hơn maxPrice');
     }
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 12;
+    // Đường admin (gồm sản phẩm ẩn) luôn đọc DB, không cache.
+    if (includeHidden) return this.queryProducts(query, true);
+    return this.cache.getOrSet(productListScope(query), CATALOG_TTL.list, () =>
+      this.queryProducts(query, false),
+    );
+  }
+
+  private async queryProducts(
+    query: ProductQueryDto,
+    includeHidden: boolean,
+  ): Promise<ProductListResponseDto> {
+    const { minPrice, maxPrice } = query;
+    const page = query.page ?? DEFAULT_PAGE;
+    const limit = query.limit ?? DEFAULT_LIMIT;
     const q = query.q?.trim();
 
     // Giá trị undefined trong where bị Prisma bỏ qua, nên không cần if lồng nhau.
@@ -87,6 +112,15 @@ export class ProductService {
   }
 
   async findOne(id: number, includeHidden: boolean) {
+    // id > MAX_INT: 404 ngay (loadProduct xử lý), không chạm Redis.
+    if (includeHidden || id > MAX_INT)
+      return this.loadProduct(id, includeHidden);
+    return this.cache.getOrSet(productScope(id), CATALOG_TTL.detail, () =>
+      this.loadProduct(id, false),
+    );
+  }
+
+  private async loadProduct(id: number, includeHidden: boolean) {
     const product =
       id > MAX_INT
         ? null
@@ -112,6 +146,7 @@ export class ProductService {
       },
       include: productInclude,
     });
+    await this.cache.bump(); // SAU khi ghi DB xong
     return ProductResponseDto.from(product);
   }
 
@@ -123,6 +158,7 @@ export class ProductService {
       data: dto,
       include: productInclude,
     });
+    await this.cache.bump(); // SAU khi ghi DB xong
     return ProductResponseDto.from(product);
   }
 

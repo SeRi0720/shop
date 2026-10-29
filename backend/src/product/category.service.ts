@@ -1,18 +1,27 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { toHttpException } from '../common/prisma-error';
 import { PrismaService } from '../prisma/prisma.service';
+import { CacheService } from '../redis/cache.service';
+import { CATEGORIES_SCOPE, CATALOG_TTL } from './product-cache';
 
 @Injectable()
 export class CategoryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cache: CacheService,
+  ) {}
 
   findAll() {
-    return this.prisma.category.findMany({ orderBy: { name: 'asc' } });
+    return this.cache.getOrSet(CATEGORIES_SCOPE, CATALOG_TTL.taxonomy, () =>
+      this.prisma.category.findMany({ orderBy: { name: 'asc' } }),
+    );
   }
 
   async create(name: string) {
     try {
-      return await this.prisma.category.create({ data: { name } });
+      const row = await this.prisma.category.create({ data: { name } });
+      await this.cache.bump(); // SAU khi ghi DB xong
+      return row;
     } catch (error) {
       throw toHttpException(error, 'Danh mục');
     }
@@ -20,10 +29,12 @@ export class CategoryService {
 
   async update(id: number, name: string) {
     try {
-      return await this.prisma.category.update({
+      const row = await this.prisma.category.update({
         where: { id },
         data: { name },
       });
+      await this.cache.bump(); // đổi tên làm đổi cả danh sách sản phẩm (có category.name)
+      return row;
     } catch (error) {
       throw toHttpException(error, 'Danh mục');
     }
@@ -39,6 +50,7 @@ export class CategoryService {
     }
     try {
       await this.prisma.category.delete({ where: { id } });
+      await this.cache.bump();
     } catch (error) {
       throw toHttpException(error, 'Danh mục'); // bắt P2003 nếu có race
     }

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport';
 import { PrismaModule } from '../prisma/prisma.module';
+import { RedisModule } from '../redis/redis.module';
 import { AdminBrandController } from './admin-brand.controller';
 import { AdminCategoryController } from './admin-category.controller';
 import { BrandController } from './brand.controller';
@@ -13,7 +14,7 @@ import { ProductImageService } from './product-image.service';
 import { ProductController } from './product.controller';
 
 @Module({
-  imports: [PrismaModule, PassportModule.register({})],
+  imports: [PrismaModule, RedisModule, PassportModule.register({})],
   controllers: [
     CategoryController,
     AdminCategoryController,

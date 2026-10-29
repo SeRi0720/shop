@@ -30,3 +30,4 @@ skills-lock.json
 *.sql
 /uploads
 backend/scripts
+/measure
