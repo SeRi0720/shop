@@ -5,7 +5,8 @@ describe('throttledWarn', () => {
   afterEach(() => jest.restoreAllMocks());
 
   it('chỉ ghi một dòng trong mỗi khoảng, hết khoảng thì ghi lại', () => {
-    const logger = { warn: jest.fn() } as unknown as Logger;
+    const warnMock = jest.fn();
+    const logger = { warn: warnMock } as unknown as Logger;
     const now = jest.spyOn(Date, 'now');
     const warn = throttledWarn(logger, 30_000);
 
@@ -15,12 +16,12 @@ describe('throttledWarn', () => {
     warn('b'); // trong 30 giây: bị bỏ
     now.mockReturnValue(129_999);
     warn('c'); // vẫn trong khoảng: bị bỏ
-    expect(logger.warn).toHaveBeenCalledTimes(1);
-    expect(logger.warn).toHaveBeenCalledWith('a');
+    expect(warnMock).toHaveBeenCalledTimes(1);
+    expect(warnMock).toHaveBeenCalledWith('a');
 
     now.mockReturnValue(130_000);
     warn('d');
-    expect(logger.warn).toHaveBeenCalledTimes(2);
-    expect(logger.warn).toHaveBeenLastCalledWith('d');
+    expect(warnMock).toHaveBeenCalledTimes(2);
+    expect(warnMock).toHaveBeenLastCalledWith('d');
   });
 });

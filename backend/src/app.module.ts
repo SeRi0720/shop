@@ -14,6 +14,8 @@ import { ChatModule } from './chat/chat.module';
 import { StatsModule } from './stats/stats.module';
 import { KafkaModule } from './kafka/kafka.module';
 import { NotificationModule } from './notification/notification.module';
+import { RedisModule } from './redis/redis.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -29,7 +31,9 @@ import { NotificationModule } from './notification/notification.module';
     ChatModule,
     StatsModule,
     KafkaModule,
+    RedisModule,
     NotificationModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

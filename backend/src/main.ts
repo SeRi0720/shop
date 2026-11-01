@@ -5,12 +5,28 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import { mkdirSync } from 'node:fs';
 import { AppModule } from './app.module';
+import { readTrustProxy } from './common/trust-proxy';
 import { UPLOAD_URL_PREFIX, getUploadDir } from './product/upload.config';
+import { RedisIoAdapter } from './redis/redis-io.adapter';
+import { RedisService } from './redis/redis.service';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.setGlobalPrefix('api');
   app.enableShutdownHooks();
+
+  // Số hop proxy tin cậy (Nginx = 1). Không dùng `true`: client tự giả được X-Forwarded-For.
+  app.set('trust proxy', readTrustProxy(process.env));
+
+  // Adapter Redis cho Socket.IO: phải đăng ký trước app.listen. Redis chết thì không sập (fail-open).
+  const redis = app.get(RedisService);
+  if (redis.cfg.enabled) {
+    app.useWebSocketAdapter(new RedisIoAdapter(app, redis));
+    console.log('[socket.io] adapter Redis: bật');
+  } else {
+    console.log('[socket.io] adapter Redis: tắt (chỉ phát trong instance này)');
+  }
+
   app.use(cookieParser());
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 

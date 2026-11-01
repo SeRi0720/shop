@@ -73,6 +73,10 @@ export class KafkaService
     });
   }
 
+  get isReady(): boolean {
+    return this.producerReady;
+  }
+
   /** Module nghiệp vụ gọi trong onModuleInit; mọi consumer được chạy sau khi ứng dụng khởi động xong. */
   registerConsumer(def: ConsumerDefinition): void {
     this.definitions.push(def);
@@ -170,7 +174,9 @@ export class KafkaService
     if (this.cfg.consumersEnabled) {
       await this.startPendingConsumers(client);
     } else if (this.definitions.length > 0) {
-      this.logger.warn('KAFKA_CONSUMERS_ENABLED=false: chỉ publish, không tiêu thụ');
+      this.logger.warn(
+        'KAFKA_CONSUMERS_ENABLED=false: chỉ publish, không tiêu thụ',
+      );
     }
   }
 
@@ -196,7 +202,10 @@ export class KafkaService
         await consumer.run({
           eachMessage: async ({ topic, partition, message }) => {
             // Resolve = xong hoặc đã vào dead-letter (thư viện lưu offset); ném lỗi = không commit.
-            await this.processor.process(def, toIncoming(topic, partition, message));
+            await this.processor.process(
+              def,
+              toIncoming(topic, partition, message),
+            );
           },
         });
       } catch (error) {

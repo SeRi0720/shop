@@ -20,13 +20,12 @@ x-backend: &backend
     kafka:
       condition: service_healthy
   healthcheck:
-    # Ngày 4 đổi /api thành /api/health khi endpoint đã có.
     test:
       [
         "CMD",
         "node",
         "-e",
-        "fetch('http://127.0.0.1:3000/api').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
       ]
     interval: 15s
     timeout: 5s
