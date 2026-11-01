@@ -1,7 +1,7 @@
 # Compose cho máy ảo (demo và đo số liệu). Không phải production.
-# Bản ngày 1 tuần 10: Postgres, Kafka, backend-1, backend-2, migrate.
-# Chưa có: Redis (ngày 3), Nginx + web (ngày 5).
-# Cần file .env cùng thư mục (ngoài Git): xem hướng dẫn ngày 1.
+# Bản ngày 5 tuần 10: Postgres, Kafka, Redis, backend-1, backend-2, web (Nginx + frontend), migrate.
+# backend-3 chỉ trong profile scale3 (thử một lần ở ngày 6).
+# Cần file .env cùng thư mục (ngoài Git): xem Phụ lục B của WEEK_10_PLAN.
 name: shop-vm # project riêng: không dùng chung volume/container với docker-compose.yml (dev)
 
 x-backend: &backend
@@ -16,6 +16,8 @@ x-backend: &backend
     - uploads:/app/uploads
   depends_on:
     postgres:
+      condition: service_healthy
+    redis:
       condition: service_healthy
     kafka:
       condition: service_healthy
@@ -86,6 +88,29 @@ services:
       start_period: 20s
     # Không publish cổng 9092. Backend nối qua kafka:29092 (listener INTERNAL).
 
+  redis:
+    image: redis:8.8
+    restart: unless-stopped
+    mem_limit: 128m
+    command:
+      [
+        "redis-server",
+        "--maxmemory",
+        "64mb",
+        "--maxmemory-policy",
+        "allkeys-lru",
+        "--save",
+        "",
+        "--appendonly",
+        "no",
+      ]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    # Không publish cổng 6379.
+
   backend-1:
     <<: *backend
     environment:
@@ -95,6 +120,34 @@ services:
     <<: *backend
     environment:
       KAFKA_CLIENT_ID: shop-backend-2
+
+  backend-3:
+    <<: *backend
+    profiles: ["scale3"]
+    environment:
+      KAFKA_CLIENT_ID: shop-backend-3
+
+  # Nginx + frontend. Cổng ra duy nhất của hệ thống.
+  web:
+    image: shop-web:vm
+    build:
+      context: . # gốc repo: cần cả frontend/ và nginx/
+      dockerfile: nginx/Dockerfile
+    restart: unless-stopped
+    mem_limit: 256m
+    ports:
+      - "80:80"
+    depends_on:
+      backend-1:
+        condition: service_healthy
+      backend-2:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/nginx-health"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
 
   # Chạy một lần: áp migration và seed (admin + sản phẩm mẫu).
   # docker compose -f docker-compose.vm.yml --profile setup run --rm migrate
