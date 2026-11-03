@@ -37,3 +37,4 @@ commands.txt
 *.out
 *.pem
 *.key
+nginx/certs/
