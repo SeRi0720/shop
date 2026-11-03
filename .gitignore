@@ -33,3 +33,5 @@ backend/scripts
 /measure
 commands.txt
 *.ps1
+*.csv
+*.out
