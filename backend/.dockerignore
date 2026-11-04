@@ -9,3 +9,5 @@ test
 *.log
 *.tsbuildinfo
 nginx/certs
+**/*.pem
+**/*.key
