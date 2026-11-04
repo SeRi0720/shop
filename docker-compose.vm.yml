@@ -1,7 +1,5 @@
 # Compose cho máy ảo (demo và đo số liệu). Không phải production.
-# Bản ngày 5 tuần 10: Postgres, Kafka, Redis, backend-1, backend-2, web (Nginx + frontend), migrate.
 # backend-3 chỉ trong profile scale3 (thử một lần ở ngày 6).
-# Cần file .env cùng thư mục (ngoài Git): xem Phụ lục B của WEEK_10_PLAN.
 name: shop-vm # project riêng: không dùng chung volume/container với docker-compose.yml (dev)
 
 x-backend: &backend
@@ -127,23 +125,40 @@ services:
     environment:
       KAFKA_CLIENT_ID: shop-backend-3
 
-  # Nginx + frontend. Cổng ra duy nhất của hệ thống.
+    # Nginx + frontend. Cổng ra duy nhất của hệ thống.
   web:
     image: shop-web:vm
     build:
-      context: . # gốc repo: cần cả frontend/ và nginx/
+      context: .
       dockerfile: nginx/Dockerfile
     restart: unless-stopped
-    mem_limit: 256m
+    mem_limit: 384m # ModSecurity giữ thân request (upload tới 10 MB); đo lại ở bước 6
     ports:
-      - "80:80"
+      - "80:8080" # container chạy user nginx, cổng trong container là 8080
+    environment:
+      MODSEC_RULE_ENGINE: ${MODSEC_RULE_ENGINE:-DetectionOnly} # On | DetectionOnly | Off
+      BLOCKING_PARANOIA: "1"
+      ANOMALY_INBOUND: "5"
+      ANOMALY_OUTBOUND: "4"
+      # API dùng PATCH và DELETE; mặc định CRS chỉ cho GET HEAD POST OPTIONS.
+      ALLOWED_METHODS: "GET HEAD POST PUT PATCH DELETE OPTIONS"
+      # Audit log JSON vào volume, không ghi thân request và response (xem bước 5).
+      MODSEC_AUDIT_LOG: /var/log/modsec/audit.log
+      MODSEC_AUDIT_LOG_PARTS: "AHZ"
+    volumes:
+      - waf_logs:/var/log/modsec
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       backend-1:
         condition: service_healthy
       backend-2:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/nginx-health"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/nginx-health"]
       interval: 15s
       timeout: 3s
       retries: 3
@@ -167,3 +182,4 @@ volumes:
   postgres_data:
   kafka_data:
   uploads:
+  waf_logs:
