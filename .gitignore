@@ -38,3 +38,4 @@ commands.txt
 *.pem
 *.key
 nginx/certs/
+body.json
