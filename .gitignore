@@ -39,3 +39,4 @@ commands.txt
 *.key
 nginx/certs/
 body.json
+query.mjs
