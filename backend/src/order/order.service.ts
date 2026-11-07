@@ -115,8 +115,6 @@ export class OrderService {
       throw new BadRequestException('VNPay chưa được cấu hình');
     }
 
-    // QUY TẮC SỐNG CÒN: trong callback chỉ dùng `tx`, không dùng `this.prisma`.
-    // Dùng nhầm this.prisma chạy ngoài transaction mà không báo lỗi.
     const committed = await this.prisma.$transaction(async (tx) => {
       // 1. Khóa giỏ trước, rồi mới đọc giỏ (chặn đặt trùng của cùng một người)
       await this.cart.lockCart(tx, userId);

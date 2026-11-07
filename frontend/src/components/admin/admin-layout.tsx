@@ -14,7 +14,6 @@ import { useAuth } from "@/features/auth/auth-context"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { cn } from "@/lib/utils"
 
-// Mục chưa có trang thật hiện mờ kèm tuần sẽ làm (theo mục 7 của PROJECT_CONTEXT).
 const NAV: {
   to?: string
   label: string

@@ -135,6 +135,7 @@ services:
     mem_limit: 384m # ModSecurity giữ thân request (upload tới 10 MB); đo lại ở bước 6
     ports:
       - "80:8080" # container chạy user nginx, cổng trong container là 8080
+      - "443:8443"
     environment:
       MODSEC_RULE_ENGINE: ${MODSEC_RULE_ENGINE:-DetectionOnly} # On | DetectionOnly | Off
       BLOCKING_PARANOIA: "1"
@@ -147,6 +148,7 @@ services:
       MODSEC_AUDIT_LOG_PARTS: "AHZ"
     volumes:
       - waf_logs:/var/log/modsec
+      - ./nginx/certs:/etc/nginx/certs:ro
     logging:
       driver: json-file
       options:
