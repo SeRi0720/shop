@@ -139,6 +139,7 @@ services:
       - "127.0.0.1:443:8443"
     environment:
       MODSEC_RULE_ENGINE: ${MODSEC_RULE_ENGINE:-DetectionOnly} # On | DetectionOnly | Off
+      LOGIN_RATE: ${LOGIN_RATE:-5r/m}
       BLOCKING_PARANOIA: "1"
       ANOMALY_INBOUND: "5"
       ANOMALY_OUTBOUND: "4"
