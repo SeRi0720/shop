@@ -135,7 +135,8 @@ services:
     mem_limit: 384m # ModSecurity giữ thân request (upload tới 10 MB); đo lại ở bước 6
     ports:
       - "80:8080" # container chạy user nginx, cổng trong container là 8080
-      - "443:8443"
+      - "192.168.99.144:443:8443" # IP LAN của VM (thay bằng IP thật của bạn)
+      - "127.0.0.1:443:8443"
     environment:
       MODSEC_RULE_ENGINE: ${MODSEC_RULE_ENGINE:-DetectionOnly} # On | DetectionOnly | Off
       BLOCKING_PARANOIA: "1"

@@ -8,11 +8,7 @@ import { EmptyState } from "@/components/empty-state"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  useAdminOrder,
-  useChangeOrderStatus,
-  useCheckPayment,
-} from "@/features/orders/hooks"
+import { useAdminOrder, useChangeOrderStatus } from "@/features/orders/hooks"
 import {
   ADMIN_ACTION_LABEL,
   ORDER_STATUS_LABEL,
@@ -27,15 +23,12 @@ import type { AdminTargetStatus } from "@/features/orders/types"
 import { getErrorMessage, isNotFound } from "@/lib/api"
 import { formatDateTime } from "@/lib/format"
 import { parseId } from "@/lib/parse-id"
-import { useCooldown } from "@/lib/use-cooldown"
 
 export function AdminOrderDetailPage() {
   const { id: rawId } = useParams()
   const id = parseId(rawId)
   const order = useAdminOrder(id)
   const change = useChangeOrderStatus()
-  const check = useCheckPayment()
-  const [cooldown, startCooldown] = useCooldown(10)
   const [confirmCancel, setConfirmCancel] = useState(false)
   const from = (useLocation().state as { search?: string } | null)?.search ?? ""
 
@@ -94,21 +87,6 @@ export function AdminOrderDetailPage() {
     }
   }
 
-  async function checkNow() {
-    startCooldown()
-    try {
-      const next = await check.mutateAsync(o.id)
-      if (next.status === "PENDING")
-        toast.info("VNPay chưa ghi nhận thanh toán.")
-      else
-        toast.success(
-          `Đã đồng bộ với VNPay: ${ORDER_STATUS_LABEL[next.status]}`
-        )
-    } catch (error) {
-      toast.error(getErrorMessage(error, "Không kiểm tra được thanh toán."))
-    }
-  }
-
   return (
     <div className="animate-fade-up space-y-6">
       {back}
@@ -161,22 +139,9 @@ export function AdminOrderDetailPage() {
             {o.nextStatuses.length === 0 && (
               <p className="text-sm text-muted-foreground">
                 {waitingVnpay
-                  ? "Đang chờ khách thanh toán qua VNPay. Quá hạn thanh toán mà chưa trả tiền thì đơn tự hủy."
+                  ? "Đang chờ khách thanh toán qua VNPay. Trạng thái chỉ đổi khi VNPay gửi IPN (tải lại trang để xem); quá hạn mà chưa có IPN thì đơn tự hủy."
                   : "Đơn ở trạng thái cuối, không còn thao tác."}
               </p>
-            )}
-            {waitingVnpay && (
-              <Button
-                variant="outline"
-                className="w-full"
-                disabled={check.isPending || cooldown > 0}
-                onClick={checkNow}
-              >
-                {check.isPending && <Loader2 className="animate-spin" />}
-                {cooldown > 0
-                  ? `Kiểm tra thanh toán (${cooldown}s)`
-                  : "Kiểm tra thanh toán"}
-              </Button>
             )}
           </div>
         </aside>

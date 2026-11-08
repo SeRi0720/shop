@@ -1,9 +1,10 @@
 import http from "k6/http";
 import { check, fail, sleep } from "k6";
 
-const BASE = `http://${__ENV.HOST}:${__ENV.PORT || 80}/api`;
+const BASE = __ENV.BASE_URL || `https://${__ENV.HOST}/api`;
 
 export const options = {
+  insecureSkipTLSVerify: true,
   scenarios: {
     read: {
       executor: "constant-vus",

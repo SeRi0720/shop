@@ -124,13 +124,25 @@ export class VnpayService implements OnModuleInit {
     return this.requireConfig().urlTtlMinutes;
   }
 
-  /** Chỉ cảnh báo, không làm sập app: COD vẫn phải chạy khi chưa có khóa VNPay. */
+  /**
+   * Cờ VNPAY_QUERY_ENABLED: có được gọi querydr (hỏi VNPay) hay không. Mặc định TẮT:
+   * khi tắt, IPN là kênh duy nhất đổi trạng thái thanh toán. Chỉ đúng chuỗi "true"
+   * (không phân biệt hoa thường) mới bật; mọi giá trị khác, kể cả "1" hay để trống, là tắt.
+   * Đọc env lúc dùng, giống readConfig.
+   */
+  get queryEnabled(): boolean {
+    return process.env.VNPAY_QUERY_ENABLED?.trim().toLowerCase() === 'true';
+  }
+
   onModuleInit() {
     if (!this.isConfigured()) {
       this.logger.warn(
         'Thiếu VNPAY_TMN_CODE / VNPAY_HASH_SECRET / VNPAY_RETURN_URL: đặt hàng VNPay sẽ bị từ chối',
       );
     }
+    this.logger.log(
+      `querydr: ${this.queryEnabled ? 'bật' : 'tắt (IPN là kênh duy nhất đổi trạng thái VNPay)'}`,
+    );
   }
 
   /** Mã tham chiếu giao dịch: toàn chữ số, duy nhất (mã đơn đệm 0 + thời điểm tạo). */

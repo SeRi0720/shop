@@ -43,14 +43,18 @@ function setup() {
   const vnpay = {
     isConfigured: jest.fn().mockReturnValue(true),
     urlTtlMinutes: 15,
+    queryEnabled: true, // các ca ở đây kiểm nhánh có hỏi VNPay; nhánh cờ tắt nằm ở order-vnpay-lifecycle.spec.ts
     queryTransaction: jest.fn(),
   };
+  // EventBus giả: các ca ở đây không đặt đơn nên không publish; có để đủ 6 tham số của constructor.
+  const events = { publish: jest.fn().mockResolvedValue(undefined) };
   const service = new OrderService(
     prisma as never,
     {} as never,
     products as never,
     payments as never,
     vnpay as never,
+    events as never, // tham số thứ 6: EventBus
   );
   /** Lần đọc đầu (ngoài tx) và lần đọc lại (trong tx) của payments. */
   const payment = (status: string, over: Record<string, unknown> = {}) => {
@@ -68,6 +72,7 @@ function setup() {
     products,
     payments,
     vnpay,
+    events,
     state,
     payment,
     lock,

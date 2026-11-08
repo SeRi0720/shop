@@ -33,12 +33,14 @@ function setup(rows: unknown[] = [], total = rows.length) {
       .mockResolvedValue(new Map([[1, { status: 'SUCCESS', amount: 1000 }]])),
   };
   const vnpay = { urlTtlMinutes: 15 };
+  const events = { publish: jest.fn().mockResolvedValue(undefined) };
   const service = new OrderService(
     prisma as never,
     {} as never,
     {} as never,
     payments as never,
     vnpay as never,
+    events as never, // tham số thứ 6: EventBus giả
   );
   return { service, prisma, payments };
 }

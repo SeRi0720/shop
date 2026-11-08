@@ -90,6 +90,9 @@ api.interceptors.response.use(
 export function getErrorMessage(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error)) {
     if (!error.response) return "Không kết nối được máy chủ, vui lòng thử lại."
+    // 429 do Nginx (limit_req) trả về dạng HTML, không có `message` như NestJS.
+    if (error.response.status === 429)
+      return "Bạn thao tác quá nhanh, vui lòng thử lại sau ít giây."
     const message: unknown = error.response.data?.message
     if (Array.isArray(message)) return message.join(". ")
     if (typeof message === "string") return message

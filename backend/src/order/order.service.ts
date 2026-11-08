@@ -46,7 +46,7 @@ import { AdminOrderQueryDto, OrderListQueryDto } from './dto/order-query.dto';
 const MAX_INT = 2_147_483_647;
 
 // Đơn VNPay chỉ bị tự hủy sau khi URL hết hạn + phần đệm cho IPN/truy vấn đến muộn.
-const EXPIRY_GRACE_MINUTES = 2;
+const EXPIRY_GRACE_MINUTES = 10;
 const EXPIRY_BATCH_SIZE = 20;
 const QUERY_BACKOFF_MS = 5 * 60_000;
 
@@ -479,8 +479,11 @@ export class OrderService {
   }
 
   /**
-   * Hỏi VNPay (queryDr) rồi áp dụng kết quả. Gọi mạng NGOÀI transaction để không
-   * giữ khóa dòng đơn trong lúc chờ. Trả trạng thái thanh toán thật sau khi đồng bộ.
+   * Đồng bộ trạng thái thanh toán VNPay của một đơn.
+   * - Cờ VNPAY_QUERY_ENABLED tắt (mặc định): KHÔNG hỏi VNPay, chỉ trả trạng thái đã lưu trong
+   *   `payments` (IPN là kênh duy nhất ghi kết quả). Chưa có kết luận thì trả 'PENDING'.
+   * - Cờ bật: hỏi VNPay (queryDr) rồi áp dụng kết quả. Gọi mạng NGOÀI transaction để không
+   *   giữ khóa dòng đơn trong lúc chờ.
    * Không ném lỗi vì VNPay: lỗi mạng/định dạng chỉ cho kết quả 'ERROR' hoặc 'PENDING'.
    */
   async syncVnpayPayment(orderId: number): Promise<VnpaySyncState> {
@@ -489,6 +492,8 @@ export class OrderService {
     // Đã có kết luận (IPN tới trước, hoặc đơn đã hủy): khỏi hỏi lại VNPay.
     if (payment.status === 'SUCCESS') return 'PAID';
     if (payment.status === 'FAILED') return 'FAILED';
+    // Cờ tắt: không bao giờ gọi queryTransaction. Còn lại chỉ là PENDING (chưa có IPN).
+    if (!this.vnpay.queryEnabled) return 'PENDING';
 
     const backoffUntil = this.queryBackoffUntil.get(orderId);
     if (backoffUntil !== undefined) {
@@ -550,9 +555,10 @@ export class OrderService {
   }
 
   /**
-   * Tự hủy đơn VNPay quá hạn. Từng đơn: hỏi VNPay trước (ngoài transaction);
-   * đã thanh toán thì áp dụng và KHÔNG hủy; chỉ hủy khi VNPay xác nhận chưa có thanh toán
-   * hoặc báo thất bại. Truy vấn lỗi thì bỏ qua, thử lại ở lượt sau. Nhận `now` để test được.
+   * Tự hủy đơn VNPay quá hạn. Từng đơn: đồng bộ trạng thái trước (ngoài transaction);
+   * đã thanh toán thì KHÔNG hủy; chỉ hủy khi chưa có thanh toán hoặc đã thất bại. Cờ
+   * VNPAY_QUERY_ENABLED tắt thì không hỏi VNPay: chỉ đọc trạng thái đã lưu (IPN đã ghi).
+   * Cờ bật mà truy vấn lỗi thì bỏ qua, thử lại ở lượt sau. Nhận `now` để test được.
    */
   async cancelExpiredVnpayOrders(
     now: Date = new Date(),
@@ -762,10 +768,6 @@ export class OrderService {
     };
   }
 
-  /**
-   * Trạng thái admin được chọn tiếp theo. Đơn VNPay PENDING còn trong thời hạn thanh toán
-   * thì ẩn CANCELLED (tránh nút bấm vào là 409).
-   */
   private nextStatuses(
     status: OrderStatusValue,
     method: PaymentMethodValue,

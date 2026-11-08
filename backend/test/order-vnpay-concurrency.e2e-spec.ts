@@ -21,6 +21,8 @@ const ENV = {
   VNPAY_TMN_CODE: 'TESTTMN1',
   VNPAY_HASH_SECRET: 'TESTSECRETKEY1234567890ABCDEFGHIJ',
   VNPAY_RETURN_URL: 'http://localhost:5173/api/payments/vnpay/return',
+  // VnpayService thật đọc cờ từ env: các ca (e2)/(e3) kiểm tranh chấp giữa IPN và queryDr nên phải bật.
+  VNPAY_QUERY_ENABLED: 'true',
 };
 
 describe('Tranh chấp xác nhận VNPay (PostgreSQL thật)', () => {

@@ -49,14 +49,18 @@ function setup() {
   const vnpay = {
     isConfigured: jest.fn().mockReturnValue(true),
     urlTtlMinutes: 15,
+    queryEnabled: true, // mặc định cờ bật để giữ nguyên các ca cũ; ca cờ tắt ở describe cuối file
     queryTransaction: jest.fn(),
   };
+  // EventBus giả: các ca ở đây không đặt đơn nên không publish; có để đủ 6 tham số của constructor.
+  const events = { publish: jest.fn().mockResolvedValue(undefined) };
   const service = new OrderService(
     prisma as never,
     {} as never,
     products as never,
     payments as never,
     vnpay as never,
+    events as never, // tham số thứ 6: EventBus
   );
   const lock = (status: string, paymentMethod = 'VNPAY') =>
     tx.$queryRaw.mockResolvedValueOnce([{ id: 1, status, paymentMethod }]);
@@ -72,6 +76,7 @@ function setup() {
     products,
     payments,
     vnpay,
+    events,
     state,
     lock,
     cancelled,
@@ -440,5 +445,192 @@ describe('syncVnpayPayment: giãn cách khi VNPay từ chối truy vấn lặp (
     });
     expect(await t.service.syncVnpayPayment(1)).toBe('FAILED');
     expect(t.vnpay.queryTransaction).not.toHaveBeenCalled();
+  });
+});
+
+// Cờ VNPAY_QUERY_ENABLED=false: IPN là kênh duy nhất đổi trạng thái VNPay.
+// Các ca dưới đây KHÔNG mock syncVnpayPayment: chạy hàm thật để chứng minh
+// không có đường nào tới queryTransaction.
+describe('cờ VNPAY_QUERY_ENABLED tắt (IPN là kênh duy nhất)', () => {
+  const ago = (m: number) => new Date(Date.now() - m * MIN);
+  const PAYMENT = {
+    txnRef: 'T1',
+    amount: 100_000,
+    status: 'PENDING',
+    createdAt: NOW,
+  };
+
+  function off(paymentStatus: string = 'PENDING') {
+    const t = setup();
+    t.vnpay.queryEnabled = false;
+    t.payments.findVnpayByOrderId.mockResolvedValue({
+      ...PAYMENT,
+      status: paymentStatus,
+    });
+    return t;
+  }
+
+  describe('syncVnpayPayment', () => {
+    it('payments PENDING (chưa có IPN): trả PENDING, không hỏi VNPay', async () => {
+      const t = off('PENDING');
+      expect(await t.service.syncVnpayPayment(1)).toBe('PENDING');
+      expect(t.vnpay.queryTransaction).not.toHaveBeenCalled();
+      expect(t.payments.findByTxnRef).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['SUCCESS', 'PAID'],
+      ['FAILED', 'FAILED'],
+    ])(
+      'payments %s (IPN đã ghi): trả %s, không hỏi VNPay',
+      async (status, state) => {
+        const t = off(status);
+        expect(await t.service.syncVnpayPayment(1)).toBe(state);
+        expect(t.vnpay.queryTransaction).not.toHaveBeenCalled();
+      },
+    );
+
+    it('không có txnRef: vẫn trả ERROR như cũ', async () => {
+      const t = setup();
+      t.vnpay.queryEnabled = false;
+      t.payments.findVnpayByOrderId.mockResolvedValue({
+        ...PAYMENT,
+        txnRef: null,
+      });
+      expect(await t.service.syncVnpayPayment(1)).toBe('ERROR');
+      expect(t.vnpay.queryTransaction).not.toHaveBeenCalled();
+    });
+
+    it('cờ bật lại: hỏi VNPay như cũ (cờ là công tắc, không xóa mã)', async () => {
+      const t = off('PENDING');
+      t.vnpay.queryEnabled = true;
+      t.payments.findByTxnRef.mockResolvedValue({ status: 'PENDING' });
+      t.vnpay.queryTransaction.mockResolvedValue({
+        kind: 'NOT_FOUND_OR_PENDING',
+      });
+      expect(await t.service.syncVnpayPayment(1)).toBe('PENDING');
+      expect(t.vnpay.queryTransaction).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('tự hủy đơn quá hạn', () => {
+    it('chưa có IPN: hủy dưới khóa dòng, hoàn kho, payments FAILED, không hỏi VNPay', async () => {
+      const t = off('PENDING');
+      t.prisma.order.findMany.mockResolvedValue([{ id: 1 }]);
+      t.lock('PENDING');
+      expect(await t.service.cancelExpiredVnpayOrders(NOW)).toEqual({
+        checked: 1,
+        paid: 0,
+        cancelled: 1,
+        skipped: 0,
+      });
+      t.cancelled();
+      expect(t.products.increaseStock).toHaveBeenCalledWith(t.tx, [
+        { productId: 7, quantity: 2 },
+      ]);
+      expect(t.payments.setStatus).toHaveBeenCalledWith(t.tx, 1, 'FAILED', [
+        'PENDING_ON_DELIVERY',
+        'PENDING',
+      ]);
+      expect(t.vnpay.queryTransaction).not.toHaveBeenCalled();
+    });
+
+    it('IPN thành công đã ghi (payments SUCCESS): đếm là đã thanh toán, KHÔNG hủy', async () => {
+      const t = off('SUCCESS');
+      t.prisma.order.findMany.mockResolvedValue([{ id: 1 }]);
+      expect(await t.service.cancelExpiredVnpayOrders(NOW)).toMatchObject({
+        checked: 1,
+        paid: 1,
+        cancelled: 0,
+      });
+      expect(t.prisma.$transaction).not.toHaveBeenCalled();
+      expect(t.products.increaseStock).not.toHaveBeenCalled();
+      expect(t.vnpay.queryTransaction).not.toHaveBeenCalled();
+    });
+
+    it('IPN thất bại đã ghi (payments FAILED): tính là đã hủy, không hủy lần hai', async () => {
+      const t = off('FAILED');
+      t.prisma.order.findMany.mockResolvedValue([{ id: 1 }]);
+      expect(await t.service.cancelExpiredVnpayOrders(NOW)).toMatchObject({
+        cancelled: 1,
+      });
+      expect(t.prisma.$transaction).not.toHaveBeenCalled();
+      expect(t.vnpay.queryTransaction).not.toHaveBeenCalled();
+    });
+
+    it('IPN tới giữa chừng (đơn đã PAID khi khóa): để yên, không hoàn kho', async () => {
+      const t = off('PENDING');
+      t.prisma.order.findMany.mockResolvedValue([{ id: 1 }]);
+      t.lock('PAID');
+      expect(await t.service.cancelExpiredVnpayOrders(NOW)).toMatchObject({
+        checked: 1,
+        cancelled: 0,
+        skipped: 1,
+      });
+      expect(t.tx.order.update).not.toHaveBeenCalled();
+      expect(t.products.increaseStock).not.toHaveBeenCalled();
+    });
+
+    it('chưa cấu hình VNPay: vẫn không làm gì (giữ nguyên)', async () => {
+      const t = off('PENDING');
+      t.vnpay.isConfigured.mockReturnValue(false);
+      expect(await t.service.cancelExpiredVnpayOrders(NOW)).toEqual({
+        checked: 0,
+        paid: 0,
+        cancelled: 0,
+        skipped: 0,
+      });
+    });
+  });
+
+  describe('hủy thủ công', () => {
+    const peek = (createdAt: Date) => ({
+      status: 'PENDING',
+      paymentMethod: 'VNPAY',
+      createdAt,
+    });
+
+    it('hết hạn, chưa có IPN: được hủy, không hỏi VNPay', async () => {
+      const t = off('PENDING');
+      t.prisma.order.findFirst
+        .mockResolvedValueOnce(peek(ago(16)))
+        .mockResolvedValueOnce(VIEW);
+      t.lock('PENDING');
+      await t.service.cancel(5, 1);
+      t.cancelled();
+      expect(t.vnpay.queryTransaction).not.toHaveBeenCalled();
+    });
+
+    it('hết hạn nhưng IPN đã ghi SUCCESS: 409 "đã thanh toán", không hủy', async () => {
+      const t = off('SUCCESS');
+      t.prisma.order.findFirst.mockResolvedValueOnce(peek(ago(16)));
+      await expect(t.service.cancel(5, 1)).rejects.toThrow(/Đơn đã thanh toán/);
+      expect(t.prisma.$transaction).not.toHaveBeenCalled();
+      expect(t.vnpay.queryTransaction).not.toHaveBeenCalled();
+    });
+
+    it('còn hạn URL: vẫn 409 kèm giờ hết hạn, không hủy', async () => {
+      const t = off('PENDING');
+      t.prisma.order.findFirst.mockResolvedValueOnce(peek(ago(5)));
+      await expect(t.service.cancel(5, 1)).rejects.toThrow(/sẽ tự hủy sau/);
+      expect(t.prisma.$transaction).not.toHaveBeenCalled();
+      expect(t.vnpay.queryTransaction).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('checkPayment (endpoint giữ lại)', () => {
+    it('chỉ trả trạng thái đã lưu, không hỏi VNPay', async () => {
+      const t = off('PENDING');
+      t.prisma.order.findFirst
+        .mockResolvedValueOnce({ status: 'PENDING', paymentMethod: 'VNPAY' })
+        .mockResolvedValueOnce({
+          ...VIEW,
+          status: 'PENDING',
+          paymentMethod: 'VNPAY',
+        });
+      const view = await t.service.checkPayment({ id: 5, role: 'USER' }, 1);
+      expect(view.status).toBe('PENDING');
+      expect(t.vnpay.queryTransaction).not.toHaveBeenCalled();
+    });
   });
 });

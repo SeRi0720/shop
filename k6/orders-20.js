@@ -1,15 +1,14 @@
 import http from "k6/http";
 import { check, fail, sleep } from "k6";
 
-const HOST = __ENV.HOST; // địa chỉ máy ảo (hoặc 127.0.0.1 nếu NAT chuyển tiếp cổng)
-const PORTS = (__ENV.PORTS || "3000,3001").split(",");
-const BASES = PORTS.map((p) => `http://${HOST}:${p}/api`);
+const BASE = __ENV.BASE_URL || `https://${__ENV.HOST}/api`;
 const EMAIL = __ENV.EMAIL || "k6-load@example.com";
 const PASSWORD = __ENV.PASSWORD || "K6-load-pass-1";
 const JSON_H = { "Content-Type": "application/json" };
 const ok = (r) => r.status >= 200 && r.status < 300;
 
 export const options = {
+  insecureSkipTLSVerify: true,
   scenarios: {
     orders: {
       executor: "shared-iterations",
@@ -22,7 +21,7 @@ export const options = {
 };
 
 export function setup() {
-  const base = BASES[0];
+  const base = BASE;
   // Đăng ký lần hai trả lỗi (đã tồn tại): bỏ qua.
   http.post(
     `${base}/auth/register`,
@@ -39,7 +38,7 @@ export function setup() {
 }
 
 export default function (data) {
-  const base = BASES[__ITER % BASES.length];
+  const base = BASE;
   const auth = {
     headers: { ...JSON_H, Authorization: `Bearer ${data.token}` },
   };

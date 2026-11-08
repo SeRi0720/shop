@@ -11,7 +11,12 @@ const BASE_ENV = {
   VNPAY_RETURN_URL: 'http://localhost:5173/api/payments/vnpay/return',
   VNPAY_URL_TTL_MINUTES: '15',
 };
-const KEYS = [...Object.keys(BASE_ENV), 'VNPAY_PAY_URL', 'VNPAY_API_URL'];
+const KEYS = [
+  ...Object.keys(BASE_ENV),
+  'VNPAY_PAY_URL',
+  'VNPAY_API_URL',
+  'VNPAY_QUERY_ENABLED',
+];
 
 // 15:44:10 giờ VN = 08:44:10 UTC
 const CREATED = new Date('2026-10-12T08:44:10Z');
@@ -66,6 +71,29 @@ describe('VnpayService', () => {
     it('TTL sai thì dùng mặc định 15', () => {
       process.env.VNPAY_URL_TTL_MINUTES = 'abc';
       expect(svc.urlTtlMinutes).toBe(15);
+    });
+
+    describe('cờ VNPAY_QUERY_ENABLED', () => {
+      it('không đặt: tắt (mặc định)', () => {
+        expect(svc.queryEnabled).toBe(false);
+      });
+      it.each(['true', 'TRUE', ' True '])('%j: bật', (value) => {
+        process.env.VNPAY_QUERY_ENABLED = value;
+        expect(svc.queryEnabled).toBe(true);
+      });
+      it.each(['false', '', '1', 'yes', 'on'])('%j: tắt', (value) => {
+        process.env.VNPAY_QUERY_ENABLED = value;
+        expect(svc.queryEnabled).toBe(false);
+      });
+      it('đọc env lúc dùng: đổi cờ có hiệu lực ngay, không cần tạo lại service', () => {
+        expect(svc.queryEnabled).toBe(false);
+        process.env.VNPAY_QUERY_ENABLED = 'true';
+        expect(svc.queryEnabled).toBe(true);
+      });
+      it('cờ không ảnh hưởng queryTransaction (chỉ OrderService chặn lời gọi)', () => {
+        expect(svc.isConfigured()).toBe(true);
+        expect(typeof svc.queryTransaction).toBe('function');
+      });
     });
   });
 

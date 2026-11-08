@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { CheckCircle2, Clock, Loader2, PackageX } from "lucide-react"
+import { CheckCircle2, Clock, PackageX } from "lucide-react"
 import { Link, useLocation, useParams, useSearchParams } from "react-router"
 import { toast } from "sonner"
 import { Notice } from "@/components/auth/notice"
@@ -8,11 +8,7 @@ import { EmptyState } from "@/components/empty-state"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  useCancelOrder,
-  useCheckPayment,
-  useOrder,
-} from "@/features/orders/hooks"
+import { useCancelOrder, useOrder } from "@/features/orders/hooks"
 import {
   ORDER_STATUS_LABEL,
   ORDER_STATUS_VARIANT,
@@ -26,10 +22,7 @@ import type { Order } from "@/features/orders/types"
 import { getErrorMessage, isNotFound } from "@/lib/api"
 import { formatDateTime, formatTime } from "@/lib/format"
 import { parseId } from "@/lib/parse-id"
-import { useCooldown } from "@/lib/use-cooldown"
 import { useNow } from "@/lib/use-now"
-
-const CHECK_COOLDOWN_S = 10
 
 function NotFound() {
   return (
@@ -58,19 +51,7 @@ function OrderSkeleton() {
 }
 
 /** Thông báo thanh toán VNPay. Luôn dựa vào trạng thái THẬT của đơn; `hint` (?vnpay=) chỉ chọn lời nhắn. */
-function PaymentBanner({
-  order,
-  hint,
-  cooldown,
-  checking,
-  onCheck,
-}: {
-  order: Order
-  hint: string | null
-  cooldown: number
-  checking: boolean
-  onCheck: () => void
-}) {
+function PaymentBanner({ order, hint }: { order: Order; hint: string | null }) {
   if (order.paymentMethod !== "VNPAY") return null
 
   if (order.status === "PENDING") {
@@ -90,22 +71,12 @@ function PaymentBanner({
               {hint === "failed" &&
                 "Bạn đã hủy hoặc chưa hoàn tất thanh toán trên VNPay. "}
               {until && `Đơn sẽ tự hủy sau ${until} nếu chưa thanh toán. `}
-              Trang tự cập nhật trong khoảng 90 giây. Nếu bạn đã thanh toán mà
-              chưa thấy thay đổi, bấm “Kiểm tra thanh toán” hoặc tải lại trang.
+              Hệ thống đang chờ VNPay xác nhận. Trang tự cập nhật trong khoảng
+              90 giây; nếu vẫn chưa thấy thay đổi, hãy tải lại trang sau ít
+              phút.
             </p>
           </div>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onCheck}
-          disabled={checking || cooldown > 0}
-        >
-          {checking && <Loader2 className="animate-spin" />}
-          {cooldown > 0
-            ? `Kiểm tra thanh toán (${cooldown}s)`
-            : "Kiểm tra thanh toán"}
-        </Button>
       </div>
     )
   }
@@ -128,10 +99,8 @@ export function OrderDetailPage() {
   const { id: rawId } = useParams()
   const id = parseId(rawId)
   const order = useOrder(id)
-  const check = useCheckPayment()
   const cancel = useCancelOrder()
   const [cancelOpen, setCancelOpen] = useState(false)
-  const [cooldown, startCooldown] = useCooldown(CHECK_COOLDOWN_S)
   const now = useNow()
   const state = useLocation().state as { justPlaced?: boolean } | null
   const [sp] = useSearchParams()
@@ -161,22 +130,6 @@ export function OrderDetailPage() {
     o.status === "PENDING" &&
     (!vnpay || (expiresAt !== null && now >= expiresAt))
 
-  async function checkNow() {
-    startCooldown() // giãn ngay khi bấm, kể cả khi lỗi
-    try {
-      const next = await check.mutateAsync(o.id)
-      if (next.status === "PAID") toast.success("Đã xác nhận thanh toán")
-      else if (next.status === "CANCELLED")
-        toast.error("Thanh toán không thành công, đơn đã hủy")
-      else
-        toast.info(
-          "VNPay chưa ghi nhận thanh toán. Nếu bạn vừa thanh toán, hãy thử lại sau ít giây."
-        )
-    } catch (error) {
-      toast.error(getErrorMessage(error, "Không kiểm tra được thanh toán."))
-    }
-  }
-
   return (
     <div className="animate-fade-up space-y-8">
       {state?.justPlaced && !vnpay && (
@@ -194,13 +147,7 @@ export function OrderDetailPage() {
         </div>
       )}
 
-      <PaymentBanner
-        order={o}
-        hint={sp.get("vnpay")}
-        cooldown={cooldown}
-        checking={check.isPending}
-        onCheck={checkNow}
-      />
+      <PaymentBanner order={o} hint={sp.get("vnpay")} />
 
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="space-y-2">
