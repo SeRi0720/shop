@@ -9,9 +9,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { PHONE_MESSAGE, PHONE_REGEX } from '../../common/phone';
-
-const trim = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim() : value;
+import { Sanitize } from '../../common/sanitize';
 
 /** Chuỗi rỗng nghĩa là xóa số điện thoại, nên đổi thành null. */
 const trimOrNull = ({ value }: { value: unknown }) => {
@@ -22,7 +20,7 @@ const trimOrNull = ({ value }: { value: unknown }) => {
 
 export class UpdateProfileDto {
   @ApiPropertyOptional({ example: 'Nguyễn Văn A', maxLength: 100 })
-  @Transform(trim)
+  @Sanitize()
   // Không dùng IsOptional: nó bỏ qua cả null, mà cột full_name không cho null (sẽ thành lỗi 500).
   @ValidateIf((_o, value) => value !== undefined)
   @IsString()

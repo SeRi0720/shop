@@ -54,4 +54,17 @@ describe('UpdateProfileDto', () => {
     expect(dto).not.toHaveProperty('isActive');
     expect((await check({})).errors).toHaveLength(0);
   });
+
+  it('fullName chứa ký tự vô hình và NFD được làm sạch', async () => {
+    const { dto, errors } = await check({
+      fullName: 'Nguye\u0302\u0303n\u200B Văn A',
+    });
+    expect(errors).toHaveLength(0);
+    expect(dto.fullName).toBe('Nguyễn Văn A');
+  });
+
+  it('fullName chỉ gồm ký tự vô hình bị từ chối (rỗng sau làm sạch)', async () => {
+    const { errors } = await check({ fullName: '\u200B\uFEFF' });
+    expect(errors.length).toBeGreaterThan(0);
+  });
 });

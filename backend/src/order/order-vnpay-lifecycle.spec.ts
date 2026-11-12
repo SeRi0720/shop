@@ -96,7 +96,7 @@ describe('cancelExpiredVnpayOrders', () => {
     expect(t.prisma.order.findMany).not.toHaveBeenCalled();
   });
 
-  it('chỉ chọn đơn VNPAY PENDING tạo trước (hạn + 2 phút đệm), tối đa 20 đơn', async () => {
+  it('chỉ chọn đơn VNPAY PENDING tạo trước (hạn + 10 phút đệm), tối đa 20 đơn', async () => {
     const t = setup();
     t.prisma.order.findMany.mockResolvedValue([]);
     await t.service.cancelExpiredVnpayOrders(NOW);
@@ -105,7 +105,7 @@ describe('cancelExpiredVnpayOrders', () => {
         where: {
           paymentMethod: 'VNPAY',
           status: 'PENDING',
-          createdAt: { lt: new Date(NOW.getTime() - 17 * MIN) },
+          createdAt: { lt: new Date(NOW.getTime() - (15 + 10) * MIN) },
         },
         take: 20,
       }),

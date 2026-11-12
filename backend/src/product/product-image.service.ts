@@ -9,6 +9,7 @@ import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { PrismaService } from '../prisma/prisma.service';
 import { CacheService } from '../redis/cache.service';
+import { detectImageType } from './image-signature';
 import { ProductService } from './product.service';
 import {
   IMAGE_EXT,
@@ -45,11 +46,14 @@ export class ProductImageService {
       );
     }
 
-    // Tên do server sinh, đuôi lấy từ mimetype; không bao giờ dùng originalname.
     const names = files.map((f) => {
-      const ext = IMAGE_EXT[f.mimetype];
-      if (!ext) throw new BadRequestException('Chỉ nhận ảnh jpeg, png, webp');
-      return `${randomUUID()}${ext}`;
+      const detected = detectImageType(f.buffer);
+      if (!detected || detected !== f.mimetype) {
+        throw new BadRequestException(
+          'Nội dung file không phải ảnh jpeg, png hoặc webp hợp lệ',
+        );
+      }
+      return `${randomUUID()}${IMAGE_EXT[detected]}`;
     });
 
     const dir = getUploadDir();

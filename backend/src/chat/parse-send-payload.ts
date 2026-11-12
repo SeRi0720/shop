@@ -1,3 +1,4 @@
+import { sanitizeText } from '../common/sanitize';
 import { ChatError } from './chat-error';
 
 export const MAX_CONTENT_LENGTH = 2000;
@@ -15,8 +16,8 @@ export function parseSendPayload(raw: unknown): SendPayload {
   const { content, customerId } = raw as Record<string, unknown>;
   if (typeof content !== 'string') throw new ChatError('INVALID_PAYLOAD');
 
-  const trimmed = content.trim();
-  if (trimmed.length < 1 || trimmed.length > MAX_CONTENT_LENGTH) {
+  const cleaned = sanitizeText(content, { multiline: true });
+  if (cleaned.length < 1 || cleaned.length > MAX_CONTENT_LENGTH) {
     throw new ChatError('INVALID_CONTENT');
   }
 
@@ -30,5 +31,5 @@ export function parseSendPayload(raw: unknown): SendPayload {
       ? customerId
       : undefined;
 
-  return { content: trimmed, customerId: validId };
+  return { content: cleaned, customerId: validId };
 }

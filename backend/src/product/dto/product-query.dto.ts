@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform, Type } from 'class-transformer';
+import { Type } from 'class-transformer';
 import {
   IsIn,
   IsInt,
@@ -9,6 +9,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { Sanitize } from '../../common/sanitize';
 
 export const PRODUCT_SORTS = ['newest', 'price_asc', 'price_desc'] as const;
 export type ProductSort = (typeof PRODUCT_SORTS)[number];
@@ -17,9 +18,7 @@ export class ProductQueryDto {
   @ApiPropertyOptional({
     description: 'Tìm theo tên (không phân biệt hoa thường)',
   })
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.trim() : value,
-  )
+  @Sanitize()
   @IsOptional()
   @IsString()
   @MaxLength(100)

@@ -9,12 +9,22 @@ import { ProductImageService } from './product-image.service';
 import { ProductService } from './product.service';
 import { imageFileFilter, imageUploadOptions } from './upload.config';
 
-const img = (mimetype = 'image/png', originalname = 'a.png') => ({
-  buffer: Buffer.from('x'),
-  mimetype,
-  size: 1,
-  originalname,
-});
+// Byte header thật theo mimetype; mimetype lạ thì dùng byte văn bản.
+const HEADERS: Record<string, Buffer> = {
+  'image/jpeg': Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10]),
+  'image/png': Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+  'image/webp': Buffer.concat([
+    Buffer.from('RIFF'),
+    Buffer.from([0x24, 0, 0, 0]),
+    Buffer.from('WEBPVP8 '),
+  ]),
+};
+
+const img = (
+  mimetype = 'image/png',
+  originalname = 'a.png',
+  buffer: Buffer = HEADERS[mimetype] ?? Buffer.from('x'),
+) => ({ buffer, mimetype, size: buffer.length, originalname });
 
 const makePrisma = () => ({
   productImage: {
@@ -108,6 +118,40 @@ describe('ProductImageService', () => {
         'db down',
       );
       expect(await readdir(dir)).toEqual([]);
+    });
+
+    it('khai image/jpeg nhưng nội dung là png: 400, không ghi file', async () => {
+      await expect(
+        service.addImages(1, [
+          img('image/jpeg', 'a.jpg', HEADERS['image/png']),
+        ]),
+      ).rejects.toThrow(BadRequestException);
+      expect(await readdir(dir)).toEqual([]);
+    });
+
+    it('nội dung văn bản đội lốt png: 400', async () => {
+      await expect(
+        service.addImages(1, [
+          img('image/png', 'a.png', Buffer.from('khong phai anh')),
+        ]),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('lô 3 file có 1 file sai: 400, không file nào được ghi, không gọi create', async () => {
+      await expect(
+        service.addImages(1, [
+          img('image/png'),
+          img('image/jpeg', 'b.jpg', Buffer.from('<html>')),
+          img('image/webp', 'c.webp'),
+        ]),
+      ).rejects.toThrow(BadRequestException);
+      expect(await readdir(dir)).toEqual([]);
+      expect(prisma.productImage.create).not.toHaveBeenCalled();
+    });
+
+    it('đuôi file theo loại phát hiện được, gồm cả webp', async () => {
+      await service.addImages(1, [img('image/webp', 'x.png')]);
+      expect((await readdir(dir)).map((n) => extname(n))).toEqual(['.webp']);
     });
 
     it('mimetype lạ bị từ chối ngay trong service', async () => {

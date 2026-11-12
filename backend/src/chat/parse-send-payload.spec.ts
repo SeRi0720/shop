@@ -50,4 +50,20 @@ describe('parseSendPayload', () => {
       ).toBeUndefined();
     }
   });
+
+  it('tin chỉ gồm ký tự vô hình: INVALID_CONTENT (rỗng sau làm sạch)', () => {
+    expect(codeOf({ content: '\u200B\u200B' })).toBe('INVALID_CONTENT');
+  });
+
+  it('bỏ ký tự bidi U+202E, giữ xuống dòng', () => {
+    expect(parseSendPayload({ content: 'a\u202Eb' }).content).toBe('ab');
+    expect(parseSendPayload({ content: 'dòng 1\r\ndòng 2' }).content).toBe(
+      'dòng 1\ndòng 2',
+    );
+  });
+
+  it('độ dài tính sau khi làm sạch', () => {
+    const padded = 'a'.repeat(2000) + '\u200B'.repeat(50);
+    expect(codeOf({ content: padded })).toBeNull();
+  });
 });

@@ -1,10 +1,8 @@
-import { Transform } from 'class-transformer';
 import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import { Sanitize } from '../../common/sanitize';
 
 export class NameDto {
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.trim() : value,
-  )
+  @Sanitize()
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)

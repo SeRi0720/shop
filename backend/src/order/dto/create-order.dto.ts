@@ -1,5 +1,4 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
 import {
   IsIn,
   IsOptional,
@@ -8,27 +7,25 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-
-const trim = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim() : value;
+import { Sanitize } from '../../common/sanitize';
 
 export const PAYMENT_METHODS = ['COD', 'VNPAY'] as const;
 
 export class CreateOrderDto {
   @ApiProperty({ example: 'Name' })
-  @Transform(trim)
+  @Sanitize()
   @IsString()
   @MinLength(2)
   @MaxLength(100)
   shippingName: string;
 
   @ApiProperty({ example: '0912345678' })
-  @Transform(trim)
+  @Sanitize()
   @Matches(/^(0|\+84)\d{9}$/, { message: 'Số điện thoại không hợp lệ' })
   shippingPhone: string;
 
   @ApiProperty({ example: 'Address' })
-  @Transform(trim)
+  @Sanitize()
   @IsString()
   @MinLength(5)
   @MaxLength(255)
@@ -36,7 +33,7 @@ export class CreateOrderDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Transform(trim)
+  @Sanitize({ multiline: true })
   @IsString()
   @MaxLength(500)
   note?: string;

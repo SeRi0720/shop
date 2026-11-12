@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform, Type } from 'class-transformer';
+import { Type } from 'class-transformer';
 import {
   IsIn,
   IsInt,
@@ -10,11 +10,9 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { Sanitize } from '../../common/sanitize';
 import { ORDER_STATUSES } from '../order-state';
 import { PAYMENT_METHODS } from './create-order.dto';
-
-const trim = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim() : value;
 
 export class OrderListQueryDto {
   @ApiPropertyOptional({ default: 1 })
@@ -48,7 +46,7 @@ export class AdminOrderQueryDto extends OrderListQueryDto {
   @ApiPropertyOptional({
     description: 'Mã đơn, tên hoặc số điện thoại giao hàng',
   })
-  @Transform(trim)
+  @Sanitize()
   @IsOptional()
   @IsString()
   @MaxLength(100)

@@ -464,7 +464,6 @@ export class OrderService {
 
         if (payment.status !== 'PENDING') return 'ALREADY_CONFIRMED';
         await this.payments.finishVnpay(tx, payment.id, 'FAILED', info);
-        // cancelLocked hoàn kho; chỉ gọi khi đơn còn PENDING để không hoàn kho hai lần.
         if (order.status === 'PENDING') await this.cancelLocked(tx, order.id);
         return 'APPLIED_FAILED';
       },
@@ -478,14 +477,6 @@ export class OrderService {
     return outcome;
   }
 
-  /**
-   * Đồng bộ trạng thái thanh toán VNPay của một đơn.
-   * - Cờ VNPAY_QUERY_ENABLED tắt (mặc định): KHÔNG hỏi VNPay, chỉ trả trạng thái đã lưu trong
-   *   `payments` (IPN là kênh duy nhất ghi kết quả). Chưa có kết luận thì trả 'PENDING'.
-   * - Cờ bật: hỏi VNPay (queryDr) rồi áp dụng kết quả. Gọi mạng NGOÀI transaction để không
-   *   giữ khóa dòng đơn trong lúc chờ.
-   * Không ném lỗi vì VNPay: lỗi mạng/định dạng chỉ cho kết quả 'ERROR' hoặc 'PENDING'.
-   */
   async syncVnpayPayment(orderId: number): Promise<VnpaySyncState> {
     const payment = await this.payments.findVnpayByOrderId(orderId);
     if (!payment?.txnRef) return 'ERROR';
@@ -521,7 +512,6 @@ export class OrderService {
       this.logger.warn(`queryDr đơn #${orderId} lỗi: ${result.reason}`);
     }
 
-    // Đọc lại: IPN có thể vừa xử lý xong trong lúc ta chờ VNPay.
     const latest = await this.payments.findByTxnRef(payment.txnRef);
     if (latest?.status === 'SUCCESS') return 'PAID';
     if (latest?.status === 'FAILED') return 'FAILED';

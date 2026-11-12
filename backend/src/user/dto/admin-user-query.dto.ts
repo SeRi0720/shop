@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform, Type } from 'class-transformer';
+import { Type } from 'class-transformer';
 import {
   IsIn,
   IsInt,
@@ -9,11 +9,9 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { Sanitize } from '../../common/sanitize';
 
 export const USER_STATUS_FILTERS = ['active', 'locked'] as const;
-
-const trim = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim() : value;
 
 export class AdminUserQueryDto {
   @ApiPropertyOptional({ default: 1 })
@@ -33,7 +31,7 @@ export class AdminUserQueryDto {
   limit?: number;
 
   @ApiPropertyOptional({ description: 'Email, họ tên hoặc số điện thoại' })
-  @Transform(trim)
+  @Sanitize()
   @IsOptional()
   @IsString()
   @MaxLength(100)
