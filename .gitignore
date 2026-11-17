@@ -30,8 +30,6 @@ skills-lock.json
 /uploads
 backend/scripts
 /measure
-commands.txt
-*.ps1
 *.csv
 *.out
 *.pem
