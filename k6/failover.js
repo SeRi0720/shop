@@ -1,13 +1,19 @@
 // Kịch bản T3: tải GET + POST liên tục để quan sát failover nginx.
 // CHẠY Ở MÁY CHÍNH (PowerShell): k6 run -e HOST=192.168.99.144 -e PRODUCT_ID=1 k6\failover.js
+// Tham số: USERS (mặc định 72), ORDER_VUS (8), PRODUCT_ID, DURATION, READ_RATE, ORDER_RATE.
 // Cần: LOGIN_RATE nới (vd 1000r/s) trong .env của VM; mặc định 5r/m chặn đăng nhập hàng loạt ở setup.
 import http from "k6/http";
 import { check, fail, sleep } from "k6";
+import exec from "k6/execution";
 import { Counter } from "k6/metrics";
 
 const BASE = __ENV.BASE_URL || `https://${__ENV.HOST}/api`;
 const PASSWORD = __ENV.PASSWORD || "K6-load-pass-1";
-const N_USERS = Number(__ENV.VUS_ORDERS || 8); // mỗi VU đặt hàng dùng 1 tài khoản riêng
+// Mỗi VU dùng 1 tài khoản RIÊNG theo exec.vu.idInTest. ID VU không gắn với scenario (k6 lấy VU từ một pool chung),
+// nên KHÔNG dùng modulo: hai VU trùng tài khoản sẽ tranh giỏ hàng (đơn quantity=2 và 409 giả ở lượt rr-ws-kill).
+// Cần USERS >= tổng số VU tối đa (reads maxVUs 60 + orders ORDER_VUS) để mọi VU có tài khoản riêng.
+const ORDER_VUS = Number(__ENV.ORDER_VUS || 8);
+const N_USERS = Number(__ENV.USERS || 72);
 const DURATION = __ENV.DURATION || "150s";
 const READ_RATE = Number(__ENV.READ_RATE || 30); // req/s
 const ORDER_RATE = Number(__ENV.ORDER_RATE || 4); // đơn/s
@@ -16,6 +22,7 @@ const JSON_H = { "Content-Type": "application/json" };
 
 export const options = {
   insecureSkipTLSVerify: true,
+  setupTimeout: "180s", // đăng ký + đăng nhập N_USERS tài khoản (argon2) mất vài chục giây
   scenarios: {
     reads: {
       executor: "constant-arrival-rate",
@@ -31,8 +38,8 @@ export const options = {
       rate: ORDER_RATE,
       timeUnit: "1s",
       duration: DURATION,
-      preAllocatedVUs: N_USERS,
-      maxVUs: N_USERS, // không vượt số tài khoản: 1 VU = 1 user, không đụng khóa giỏ của nhau
+      preAllocatedVUs: ORDER_VUS,
+      maxVUs: ORDER_VUS,
       exec: "orders",
     },
   },
@@ -91,7 +98,12 @@ export function reads(data) {
 }
 
 export function orders(data) {
-  const token = data.tokens[(__VU - 1) % data.tokens.length];
+  const idx = exec.vu.idInTest - 1;
+  if (idx >= data.tokens.length)
+    fail(
+      `VU ${exec.vu.idInTest} không có tài khoản riêng: tăng USERS (hiện ${data.tokens.length})`,
+    );
+  const token = data.tokens[idx];
   const auth = { headers: { ...JSON_H, Authorization: `Bearer ${token}` } };
 
   const add = http.post(

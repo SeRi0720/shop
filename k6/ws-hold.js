@@ -1,8 +1,9 @@
-// Giữ N kết nối Socket.IO (websocket) mở lâu để tạo tải "kết nối dài" cho so sánh least_conn / round robin.
+// Giữ N kết nối Socket.IO (websocket) mở lâu để tạo tải "kết nối dài". Giống trình duyệt thật, VU TỰ KẾT NỐI LẠI
+// khi socket bị đứt (backend chết), nên socket của backend chết sẽ dồn sang backend còn sống.
 // CHẠY Ở MÁY CHÍNH (PowerShell), trước lượt failover: k6 run -e HOST=192.168.99.144 -e CONNS=40 -e HOLD=600 k6/ws-hold.js
 import http from "k6/http";
 import ws from "k6/ws";
-import { check, fail } from "k6";
+import { check, fail, sleep } from "k6";
 
 const BASE = __ENV.BASE_URL || `https://${__ENV.HOST}/api`;
 const WS_URL =
@@ -42,6 +43,14 @@ export function setup() {
 }
 
 export default function (data) {
+  const end = Date.now() + HOLD * 1000;
+  while (Date.now() < end) {
+    connectOnce(data, end);
+    if (Date.now() < end) sleep(1); // chờ 1 giây rồi nối lại, như socket.io-client
+  }
+}
+
+function connectOnce(data, end) {
   const res = ws.connect(WS_URL, {}, (socket) => {
     socket.on("message", (msg) => {
       if (msg === "2")
@@ -50,7 +59,7 @@ export default function (data) {
         socket.send("40" + JSON.stringify({ token: data.token })); // mở namespace + auth
     });
     socket.on("error", (e) => console.log("ws error:", e.error()));
-    socket.setTimeout(() => socket.close(), HOLD * 1000);
+    socket.setTimeout(() => socket.close(), Math.max(1, end - Date.now()));
   });
   check(res, { "ws 101": (r) => r && r.status === 101 });
 }
