@@ -20,6 +20,9 @@ ips() { docker inspect -f '{{.Name}} {{range .NetworkSettings.Networks}}{{.IPAdd
 { echo "# free -m (VM) trước khi đo"; free -m; echo; $DC ps --format '{{.Service}} {{.Status}}'; } | tee "$OUT/before.txt"
 { ips backend-1; ips backend-2; } | tee "$OUT/backend-ips.txt"
 
+Q() { $DC exec -T postgres psql -U shop -d shop -At -c "$1"; }
+ORDERS_SQL="SELECT count(*) FROM orders o JOIN users u ON u.id=o.user_id WHERE u.email LIKE 'k6-fo-%'"
+ORDERS_BEFORE="$(Q "$ORDERS_SQL")"; echo "orders_k6fo_total_before=$ORDERS_BEFORE" | tee "$OUT/db-before.txt"
 echo
 echo ">>> Bây giờ chạy k6 trên MÁY CHÍNH. Đang chờ thấy POST /api/orders ở nginx (tối đa 180 giây)..."
 for i in $(seq 180); do
@@ -51,8 +54,10 @@ $DC logs --no-log-prefix --no-color --since "$START_ISO" backend-1 > "$OUT/backe
 $DC logs --no-log-prefix --no-color --since "$START_ISO" backend-2 > "$OUT/backend-2.log" 2>&1 || true
 
 # Đối chiếu DB với k6-summary.json (trên máy chính): đơn thiếu/thừa và dòng đơn có quantity > 1 (dấu hiệu cart add bị retry).
-Q() { $DC exec -T postgres psql -U shop -d shop -At -c "$1"; }
 {
+  echo "orders_k6fo_total_before=$ORDERS_BEFORE"
+  echo "orders_k6fo_total_after=$(Q "$ORDERS_SQL")"
+  echo "orders_k6fo_delta=$(( $(Q "$ORDERS_SQL") - ORDERS_BEFORE ))   # so với orders_created_2xx trong k6-summary.json"
   echo "orders_k6fo_since_start=$(Q "SELECT count(*) FROM orders o JOIN users u ON u.id=o.user_id WHERE u.email LIKE 'k6-fo-%' AND o.created_at >= '${START_ISO}'")"
   echo "order_items_quantity_gt_1=$(Q "SELECT count(*) FROM order_items oi JOIN orders o ON o.id=oi.order_id JOIN users u ON u.id=o.user_id WHERE u.email LIKE 'k6-fo-%' AND o.created_at >= '${START_ISO}' AND oi.quantity > 1")"
 } | tee "$OUT/db-check.txt"
