@@ -1,0 +1,27 @@
+# Cấu hình ĐO (tuần 12 T2, tuần 13 k6). Dùng CHUNG với docker-compose.vm.yml, không chạy riêng:
+#   docker compose -f docker-compose.vm.yml -f docker-compose.measure.yml up -d --force-recreate backend-1 backend-2
+# - Consumer Kafka chỉ bật ở backend-1 (PROJECT_CONTEXT 12.2, quy tắc 3). Muốn demo hai instance chia partition
+#   (T4) thì KHÔNG dùng tệp này.
+# - kafka-ui (profile `tools`): chỉ bật lúc chụp màn hình, KHÔNG bật khi đo. Chỉ nghe 127.0.0.1 của VM
+#   (UI không có đăng nhập); xem từ máy chính bằng: ssh -L 8081:127.0.0.1:8081 <user>@<IP VM> rồi mở http://localhost:8081
+#   docker compose -f docker-compose.vm.yml -f docker-compose.measure.yml --profile tools up -d kafka-ui
+services:
+  backend-2:
+    environment:
+      KAFKA_CLIENT_ID: shop-backend-2
+      KAFKA_CONSUMERS_ENABLED: "false"
+
+  kafka-ui:
+    image: ghcr.io/kafbat/kafka-ui:v1.5.0
+    profiles: ["tools"]
+    restart: "no"
+    mem_limit: 512m
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_CLUSTERS_0_NAME: vm
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      JAVA_OPTS: "-Xmx256m" # kiểm lại trong tài liệu kafbat nếu UI không khởi động
+    ports:
+      - "127.0.0.1:8081:8080"
