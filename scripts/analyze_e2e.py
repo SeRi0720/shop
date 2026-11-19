@@ -34,11 +34,30 @@ def fmt(x):
 
 
 def main():
+    # Windows: stdout qua pipe mặc định cp1252 nên không in được tiếng Việt
+    sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser()
     ap.add_argument("log")
     ap.add_argument("--bucket", type=int, default=10, help="giây mỗi cửa sổ ở bảng diễn biến")
     ap.add_argument("--csv", help="ghi từng đơn ra CSV")
+    ap.add_argument("--out", help="ghi báo cáo ra tệp UTF-8 (nên dùng thay cho Tee-Object trên Windows)")
     a = ap.parse_args()
+
+    if a.out:
+        # Ghi thẳng ra tệp UTF-8, không đi qua pipe của PowerShell (pipe làm hỏng tiếng Việt).
+        fh = open(a.out, "w", encoding="utf-8")
+        console = sys.stdout
+
+        class Tee:
+            def write(self, s):
+                console.write(s)
+                fh.write(s)
+
+            def flush(self):
+                console.flush()
+                fh.flush()
+
+        sys.stdout = Tee()
 
     orders = {}  # orderId -> (ts, step)
     ntf = defaultdict(list)  # orderId -> [ts, ...]

@@ -145,6 +145,16 @@ K "${LAG_CMD[@]}" 2>&1 | tee -a "$OUT/lag-final.txt" || true
   Q "SELECT consumer, count(*) FROM processed_events WHERE processed_at >= '${START_ISO}' GROUP BY consumer ORDER BY consumer"
 } | tee "$OUT/db-check.txt"
 
+for b in backend-1 backend-2; do
+  $DC logs --no-log-prefix --no-color --since "$START_ISO" "$b" > "$OUT/$b.log" 2>&1 || true
+done
+{
+  echo "# đếm trong log backend từ START (log Docker xoay vòng 10 MB x 3 file: kiểm dòng đầu của $OUT/<backend>.log)"
+  for b in backend-1 backend-2; do
+    echo "$b: dong=$(wc -l < "$OUT/$b.log") bo_qua_trung=$(grep -c 'Bỏ qua trùng' "$OUT/$b.log") thu_lai=$(grep -c 'thử lại sau' "$OUT/$b.log") dlt=$(grep -c 'chuyển .*dlt' "$OUT/$b.log") kenh_log=$(grep -c '"channel":"log"' "$OUT/$b.log")"
+  done
+} | tee "$OUT/log-check.txt"
+
 $DC logs --no-log-prefix --no-color --since "$START_ISO" web > "$OUT/web.log" 2>&1 || true
 echo; echo "Xong. Thư mục: $OUT"
 echo "Gợi ý: python3 scripts/analyze_access_log.py chỉ dành cho failover; ở T2 xem stats.csv, pg.csv, lag.csv, vmstat.txt."

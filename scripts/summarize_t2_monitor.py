@@ -12,6 +12,7 @@ import argparse
 import csv
 import os
 import re
+import sys
 from collections import defaultdict
 
 
@@ -45,12 +46,31 @@ def short(name):
 
 
 def main():
+    # Windows: stdout qua pipe mặc định cp1252 nên không in được tiếng Việt
+    sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser()
     ap.add_argument("dir")
     ap.add_argument("--rates", required=True)
     ap.add_argument("--step", type=int, default=60)
     ap.add_argument("--offset", type=float, default=0)
+    ap.add_argument("--out", help="ghi báo cáo ra tệp UTF-8 (nên dùng thay cho Tee-Object trên Windows)")
     a = ap.parse_args()
+
+    if a.out:
+        # Ghi thẳng ra tệp UTF-8, không đi qua pipe của PowerShell (pipe làm hỏng tiếng Việt).
+        fh = open(a.out, "w", encoding="utf-8")
+        console = sys.stdout
+
+        class Tee:
+            def write(self, s):
+                console.write(s)
+                fh.write(s)
+
+            def flush(self):
+                console.flush()
+                fh.flush()
+
+        sys.stdout = Tee()
     rates = [r.strip() for r in a.rates.split(",")]
     n = len(rates)
 

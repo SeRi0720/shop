@@ -244,7 +244,7 @@ const cnt = (data, name) => v(data, name, "count") ?? 0;
 
 export function handleSummary(data) {
   const rows = [
-    "bậc | mục tiêu/s | đơn OK | 409 | 5xx | khác | giỏ lỗi | order p50 | p95 | p99 | max (ms) | cart p95",
+    "step | target/s | orders OK | 409 | 5xx | other | cart failed | order p50 | p95 | p99 | max (ms) | cart p95",
     "--- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---",
   ];
   RATES.forEach((r, s) => {
@@ -269,10 +269,10 @@ export function handleSummary(data) {
   });
   const dropped = cnt(data, "dropped_iterations");
   const text =
-    `\n=== T2: theo từng bậc (mỗi bậc ${STEP}s, hot=${HOT}) ===\n` +
+    `\n=== T2: per step (${STEP}s each, hot=${HOT}) ===\n` +
     rows.join("\n") +
-    `\ndropped_iterations (hết VU = quá tải): ${dropped}\n` +
-    `Đơn đạt/mục tiêu mỗi bậc ≈ (OK+409+5xx+khác) / (mục tiêu x ${STEP}).\n`;
+    `\ndropped_iterations (out of VUs = overload): ${dropped}\n` +
+    `Achieved/target orders per step ≈ (OK+409+5xx+other) / (target x ${STEP}).\n`;
   return {
     stdout: text,
     [__ENV.SUMMARY_FILE || "e2e-summary.json"]: JSON.stringify(data, null, 2),
