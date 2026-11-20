@@ -1,17 +1,3 @@
-#!/usr/bin/env python3
-"""Phân tích log của k6/e2e-ramp.js (T2). Chạy được ở máy chính hoặc VM (chỉ cần Python 3, không thư viện ngoài).
-
-Dùng: python3 scripts/analyze_e2e.py <k6-console.log> [--bucket 10] [--csv ra.csv]
-Đọc các dòng (k6 --console-output) có dạng:
-  time="..." level=info msg="ORD <orderId> <ms phản hồi POST /orders> <bậc>"
-  time="..." level=info msg="NTF <orderId> <ms nhận notification:new> <eventId>"
-  time="..." level=info msg="WSC <ms> open|close|error ..."
-In: (1) bảng theo bậc: số đơn, đã nhận thông báo, chưa nhận, trùng, độ trễ p50/p95/p99/max;
-    (2) diễn biến theo cửa sổ thời gian (đối chiếu với lag trong lag.txt của t2-monitor-vm.sh);
-    (3) các khoảng WebSocket của admin bị đứt (thông báo rơi vào khoảng này có thể mất vì Socket.IO không phát lại).
-Độ trễ = thời điểm nhận NTF đầu tiên - thời điểm nhận phản hồi POST /orders (cùng đồng hồ k6).
-Độ trễ âm nghĩa là thông báo tới trước phản hồi HTTP (Kafka nhanh hơn việc dựng phản hồi); vẫn giữ nguyên số âm.
-"""
 import argparse
 import csv
 import re

@@ -1,13 +1,3 @@
-#!/usr/bin/env python3
-"""Gộp số giám sát của scripts/t2-monitor-vm.sh theo từng bậc của k6/e2e-ramp.js để tìm nút thắt (T2).
-Chạy được ở máy chính hoặc VM (Python 3, không thư viện ngoài).
-
-Dùng: python3 scripts/summarize_t2_monitor.py <thư mục kết quả> --rates 5,10,20,40,80,120,160 [--step 60] [--offset 0]
-Đọc: events.txt (mốc START), stats.csv, free.csv, pg.csv, lag.csv trong thư mục.
-Ranh giới bậc = START + offset + k*step (START là lúc nginx thấy POST /api/orders đầu tiên, lệch vài giây so với
-bậc 0 của k6: chỉnh --offset nếu muốn). Mẫu rơi sau bậc cuối được gộp vào dòng "drain".
-Cách đọc nút thắt: xem bảng "Đọc kết quả" trong hướng dẫn ngày 3.
-"""
 import argparse
 import csv
 import os

@@ -1,14 +1,3 @@
-#!/usr/bin/env python3
-"""CHẠY TRÊN VM. Phân tích access log nginx của một lượt failover.
-
-Dùng: python3 scripts/analyze_access_log.py ~/measure/failover/<nhãn>
-Đọc: <dir>/web.log, <dir>/events.txt, <dir>/backend-ips.txt
-In: bảng theo từng giây (tổng, 2xx, 4xx, 5xx, retry, số request tới mỗi backend)
-    + thời điểm 5xx đầu/cuối, thời điểm backend-1 hết nhận request và nhận lại request,
-    + các request POST bị 5xx.
-Định dạng log (nginx.conf):
-  $remote_addr [$time_local] "$request" $status $bytes rt=.. up=<addr[, addr]> urt=..
-"""
 import re, sys, os
 from collections import defaultdict, Counter
 from datetime import datetime

@@ -1,15 +1,3 @@
-#!/usr/bin/env bash
-# CHẠY TRÊN VM (Ubuntu, qua SSH). Không chạy k6: k6 chạy ở MÁY CHÍNH (Windows) vào VM.
-# Việc của script (T2): chờ k6 bắt đầu đặt đơn, rồi trong <tổng> giây ghi mỗi ~5 giây
-#   CPU/RAM từng container, RAM của VM, trạng thái kết nối Postgres (đang chờ khóa hay chờ client),
-#   vmstat; mỗi 15 giây ghi consumer lag của mọi group. Cuối bài đo: OOMKilled/RestartCount, đối chiếu DB.
-#
-# Dùng: scripts/t2-monitor-vm.sh <nhãn> [tổng=500]     (tổng = các bậc + DRAIN của k6 + ~10 giây)
-# Tùy chọn môi trường: T2_OVERRIDE=<tệp compose bổ sung> (vd docker-compose.t2.yml), OUT_DIR, NET, KAFKA_IMAGE.
-# Kết quả: $OUT_DIR/<nhãn>/ (mặc định ~/measure/t2/<nhãn>, ngoài repo nên git status vẫn sạch).
-#
-# Công cụ Kafka chạy trong CONTAINER TẠM (-m 256m, heap 128M), không chạy trong container `kafka`: JVM công cụ
-# sẽ thừa hưởng KAFKA_HEAP_OPTS=-Xmx512M của broker và có thể làm container broker vượt mem_limit (bài học T1).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

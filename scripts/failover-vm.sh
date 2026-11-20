@@ -1,10 +1,3 @@
-#!/usr/bin/env bash
-# CHẠY TRÊN VM (Ubuntu, qua SSH). Không chạy k6: k6 chạy ở MÁY CHÍNH (Windows) vào VM.
-# Việc của script: chờ tải từ k6 xuất hiện ở nginx, rồi dừng/khởi động lại backend-1 đúng giờ,
-# ghi mốc thời gian (đồng hồ VM) và gom log + số đơn trong DB.
-#
-# Dùng: scripts/failover-vm.sh <stop|kill> <nhãn> [t_down=30] [t_up=60] [tổng=150]
-# Kết quả: $OUT_DIR/<nhãn>/ (mặc định ~/measure/failover/<nhãn>, ngoài repo nên git status vẫn sạch)
 set -euo pipefail
 cd "$(dirname "$0")/.."   # về thư mục gốc repo trên VM (nơi có docker-compose.vm.yml)
 
