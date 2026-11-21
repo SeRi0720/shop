@@ -25,7 +25,7 @@ describe('ChatGateway.handleSend', () => {
       (f) => f.mockReset(),
     );
     to.mockReturnValue({ to, emit });
-    limiter.tryConsume.mockReturnValue(true);
+    limiter.tryConsume.mockResolvedValue(true);
     gateway = new ChatGateway(
       auth as unknown as ChatAuthService,
       chat as unknown as ChatService,
@@ -58,9 +58,20 @@ describe('ChatGateway.handleSend', () => {
     expect(chat.sendMessage).not.toHaveBeenCalled();
   });
 
-  it('token hết hạn được xét trước, không chạm DB', async () => {
+  it('token hết hạn được xét trước, không chạm DB và không tiêu hao lượt gửi', async () => {
     const ack = await gateway.handleSend(socket(-10), { content: 'xin chào' });
     expect(ack).toMatchObject({ ok: false, code: 'TOKEN_EXPIRED' });
     expect(auth.isActive).not.toHaveBeenCalled();
+    expect(limiter.tryConsume).not.toHaveBeenCalled();
+  });
+
+  it('vượt tần suất: RATE_LIMITED, không chạm DB, không lưu, không phát', async () => {
+    limiter.tryConsume.mockResolvedValue(false);
+    const ack = await gateway.handleSend(socket(), { content: 'xin chào' });
+    expect(ack).toMatchObject({ ok: false, code: 'RATE_LIMITED' });
+    expect(limiter.tryConsume).toHaveBeenCalledWith(5);
+    expect(auth.isActive).not.toHaveBeenCalled();
+    expect(chat.sendMessage).not.toHaveBeenCalled();
+    expect(to).not.toHaveBeenCalled();
   });
 });

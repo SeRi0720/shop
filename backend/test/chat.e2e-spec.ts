@@ -12,6 +12,7 @@ import type { ChatMessage, MessagePage, SendAck } from '../src/chat/chat.types';
 import { MessageRateLimiter } from '../src/chat/message-rate-limiter';
 import type { PrismaClient } from '../src/generated/prisma/client';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { RedisService } from '../src/redis/redis.service';
 import { createTestPrisma, createUser, resetDatabase } from './helpers/test-db';
 
 process.env.JWT_ACCESS_SECRET ??= 'e2e-secret-only-for-tests';
@@ -38,9 +39,10 @@ beforeAll(async () => {
   })
     .overrideProvider(PrismaService)
     .useValue(prisma)
-    // Hạn mức lớn: user id lặp lại giữa các test (RESTART IDENTITY), bộ đếm thì không reset
     .overrideProvider(MessageRateLimiter)
     .useValue(new MessageRateLimiter(1000, 10_000))
+    .overrideProvider(RedisService)
+    .useValue({})
     .compile();
 
   app = moduleRef.createNestApplication({ logger: ['error'] });

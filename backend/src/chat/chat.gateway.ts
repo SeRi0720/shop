@@ -100,7 +100,7 @@ export class ChatGateway
         throw new ChatError('TOKEN_EXPIRED');
       }
       // 2) Tần suất (sau bước 1 để lần gửi lại sau khi làm mới không bị tính hai lần)
-      if (!this.limiter.tryConsume(user.id))
+      if (!(await this.limiter.tryConsume(user.id)))
         throw new ChatError('RATE_LIMITED');
       if (!(await this.auth.isActive(user.id))) {
         throw new ChatError('ACCOUNT_DISABLED');

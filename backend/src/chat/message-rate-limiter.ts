@@ -1,42 +1,39 @@
-/** Cửa sổ trượt trong bộ nhớ, đếm theo userId (gộp mọi socket của người đó). */
+import { Logger } from '@nestjs/common';
+import type { CounterStore } from '../redis/cache.types';
+import { throttledWarn } from '../redis/throttled-warn';
+import { LocalWindowLimiter } from './local-window-limiter';
+
+export const CHAT_RATE_LIMIT = 10;
+export const CHAT_RATE_WINDOW_MS = 10_000;
+const KEY_PREFIX = 'rl:chat:';
+
 export class MessageRateLimiter {
-  private readonly hits = new Map<number, number[]>();
-  private lastSweep: number;
+  private readonly logger = new Logger(MessageRateLimiter.name);
+  private readonly warn = throttledWarn(this.logger);
+  private readonly local: LocalWindowLimiter;
 
   constructor(
-    private readonly limit = 10,
-    private readonly windowMs = 10_000,
-    private readonly now: () => number = Date.now,
+    private readonly limit = CHAT_RATE_LIMIT,
+    private readonly windowMs = CHAT_RATE_WINDOW_MS,
+    private readonly store?: CounterStore,
+    now: () => number = Date.now,
   ) {
-    this.lastSweep = now();
+    this.local = new LocalWindowLimiter(limit, windowMs, now);
   }
 
-  /** true nếu được gửi (và ghi nhận lượt này), false nếu vượt giới hạn. */
-  tryConsume(userId: number): boolean {
-    const t = this.now();
-    this.sweepIfDue(t);
-    const recent = (this.hits.get(userId) ?? []).filter(
-      (ts) => ts > t - this.windowMs,
-    );
-    if (recent.length >= this.limit) {
-      this.hits.set(userId, recent);
-      return false;
-    }
-    recent.push(t);
-    this.hits.set(userId, recent);
-    return true;
-  }
-
-  get trackedUsers(): number {
-    return this.hits.size;
-  }
-
-  /** Mỗi cửa sổ dọn một lần: người đã im quá một cửa sổ thì xóa khỏi Map. */
-  private sweepIfDue(t: number) {
-    if (t - this.lastSweep < this.windowMs) return;
-    this.lastSweep = t;
-    for (const [id, stamps] of this.hits) {
-      if (stamps.every((ts) => ts <= t - this.windowMs)) this.hits.delete(id);
+  async tryConsume(userId: number): Promise<boolean> {
+    if (!this.store?.countersEnabled) return this.local.tryConsume(userId);
+    try {
+      const count = await this.store.hitWindow(
+        `${KEY_PREFIX}${userId}`,
+        this.windowMs,
+      );
+      return count <= this.limit;
+    } catch (error) {
+      this.warn(
+        `Rate limit chat: Redis lỗi, dùng bộ đếm cục bộ (${error instanceof Error ? error.message : String(error)})`,
+      );
+      return this.local.tryConsume(userId);
     }
   }
 }

@@ -6,3 +6,8 @@ export interface CacheStore {
   incr(key: string): Promise<number>;
 }
 export const CACHE_STORE = Symbol('CACHE_STORE');
+export interface CounterStore {
+  readonly countersEnabled: boolean;
+  hitWindow(key: string, windowMs: number): Promise<number>;
+}
+export const COUNTER_STORE = Symbol('COUNTER_STORE');
